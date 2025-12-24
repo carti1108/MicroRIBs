@@ -8,8 +8,11 @@
 public protocol ViewableRouting: Routing {
 
 	var viewControllable: ViewControllable { get }
+
+	func detachFromParent()
 }
 
+@MainActor
 open class ViewableRouter<InteractorType, ViewControllerType>: Router<InteractorType>, ViewableRouting {
 
 	public let viewControllable: ViewControllable
@@ -25,4 +28,9 @@ open class ViewableRouter<InteractorType, ViewControllerType>: Router<Interactor
 
 		super.init(interactor: interactor)
 	}
+
+	public func detachFromParent() {
+		LeakDetector.instance.expectViewControllerDisappear(viewController: self.viewControllable.uiViewController)
+	}
 }
+

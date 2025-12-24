@@ -5,6 +5,7 @@
 //  Created by Kiseok on 12/20/25.
 //
 
+@MainActor
 public protocol Routing: AnyObject {
 
 	var interactable: Interactable { get }
@@ -15,11 +16,10 @@ public protocol Routing: AnyObject {
 
 	func detachChild(_ child: Routing)
 
-	func start()
-
-	func stop()
+	func didLoad()
 }
 
+@MainActor
 open class Router<InteractorType>: Routing {
 
 	public let interactor: InteractorType
@@ -37,26 +37,25 @@ open class Router<InteractorType>: Routing {
 	}
 
 	public func attachChild(_ child: any Routing) {
+		guard !children.contains(where: { $0 === child }) else {
+			print("⚠️ Child router is already attached.")
+			return
+		}
 		self.children.append(child)
-		child.start()
+		child.didLoad()
+		child.interactable.activate()
 	}
 
 	public func detachChild(_ child: any Routing) {
-		child.stop()
+		child.interactable.deactivate()
 		self.children.removeAll(where: { $0 as AnyObject === child as AnyObject })
-	}
 
-	public func start() {
-		if let interactable = self.interactor as? Interactable {
-			interactable.didBecomeActive()
+		LeakDetector.instance.expectDeallocate(object: child)
+
+		if let viewableRouter = child as? ViewableRouting {
+			viewableRouter.detachFromParent()
 		}
 	}
 
-	public func stop() {
-		if let interactable = self.interactor as? Interactable {
-			interactable.willResignActive()
-		}
-		self.children.forEach { $0.stop() }
-		self.children.removeAll()
-	}
+	open func didLoad() {}
 }
