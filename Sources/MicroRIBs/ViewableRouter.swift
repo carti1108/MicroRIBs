@@ -5,6 +5,7 @@
 //  Created by Kiseok on 12/23/25.
 //
 
+@MainActor
 public protocol ViewableRouting: Routing {
 
 	var viewControllable: ViewControllable { get }

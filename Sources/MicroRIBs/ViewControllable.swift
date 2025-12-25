@@ -7,6 +7,7 @@
 
 import UIKit
 
+@MainActor
 public protocol ViewControllable: AnyObject {
 
 	var uiViewController: UIViewController { get }
