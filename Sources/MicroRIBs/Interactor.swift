@@ -5,6 +5,7 @@
 //  Created by Kiseok on 12/20/25.
 //
 
+@MainActor
 public protocol Interactable: AnyObject {
 
 	var isActive: Bool { get }
@@ -18,6 +19,7 @@ public protocol Interactable: AnyObject {
 	func willResignActive()
 }
 
+@MainActor
 open class Interactor: Interactable {
 
 	public private(set) var isActive: Bool = false
