@@ -1,6 +1,6 @@
 //
 //  Builder.swift
-//  Architecture
+//  MicroRIBs
 //
 //  Created by Kiseok on 12/20/25.
 //
@@ -15,3 +15,4 @@ open class Builder<DependencyType>: Buildable {
 		self.dependency = dependency
 	}
 }
+

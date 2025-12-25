@@ -1,6 +1,6 @@
 //
 //  Presenter.swift
-//  Architecture
+//  MicroRIBs
 //
 //  Created by Kiseok on 12/25/25.
 //
@@ -15,3 +15,4 @@ open class Presenter<ViewControllerType>: Presentable {
 		self.viewController = viewController
 	}
 }
+

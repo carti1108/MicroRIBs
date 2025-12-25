@@ -1,6 +1,6 @@
 //
 //  Interactor.swift
-//  Architecture
+//  MicroRIBs
 //
 //  Created by Kiseok on 12/20/25.
 //
@@ -40,3 +40,4 @@ open class Interactor: Interactable {
 
 	open func willResignActive() {}
 }
+

@@ -1,6 +1,6 @@
 //
 //  LeakDetector.swift
-//  Architecture
+//  MicroRIBs
 //
 //  Created by Kiseok on 12/24/25.
 //
@@ -48,3 +48,4 @@ public class LeakDetector {
 			#endif
 		}
 }
+

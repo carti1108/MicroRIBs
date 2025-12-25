@@ -1,6 +1,6 @@
 //
 //  LaunchRouter.swift
-//  Architecture
+//  MicroRIBs
 //
 //  Created by Kiseok on 12/23/25.
 //
@@ -28,3 +28,4 @@ open class LaunchRouter<InteractorType, ViewControllerType>: ViewableRouter<Inte
 		self.didLoad()
 	}
 }
+

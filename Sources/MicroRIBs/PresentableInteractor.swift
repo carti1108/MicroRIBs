@@ -1,6 +1,6 @@
 //
 //  PresentableInteractor.swift
-//  Architecture
+//  MicroRIBs
 //
 //  Created by Kiseok on 12/23/25.
 //
@@ -13,3 +13,4 @@ open class PresentableInteractor<PresentableType>: Interactor {
 		self.presenter = presenter
 	}
 }
+

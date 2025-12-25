@@ -1,6 +1,6 @@
 //
 //  ViewableRouter.swift
-//  Architecture
+//  MicroRIBs
 //
 //  Created by Kiseok on 12/23/25.
 //

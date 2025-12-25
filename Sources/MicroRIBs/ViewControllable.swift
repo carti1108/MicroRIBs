@@ -1,6 +1,6 @@
 //
 //  ViewControllable.swift
-//  Architecture
+//  MicroRIBs
 //
 //  Created by Kiseok on 12/20/25.
 //
@@ -16,3 +16,4 @@ public extension ViewControllable where Self: UIViewController {
 
 	var uiViewController: UIViewController { self }
 }
+
