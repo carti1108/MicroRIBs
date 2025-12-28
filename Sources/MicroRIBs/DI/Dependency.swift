@@ -7,3 +7,4 @@
 
 public protocol Dependency: AnyObject {}
 
+public protocol EmptyDependency: Dependency {}
