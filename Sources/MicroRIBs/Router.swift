@@ -5,6 +5,8 @@
 //  Created by Kiseok on 12/20/25.
 //
 
+import Foundation
+
 @MainActor
 public protocol Routing: AnyObject {
 
