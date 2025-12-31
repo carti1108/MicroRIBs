@@ -50,11 +50,11 @@ open class Router<InteractorType>: Routing {
 		child.interactable.deactivate()
 		self.children.removeAll(where: { $0 as AnyObject === child as AnyObject })
 
-		LeakDetector.instance.expectDeallocate(object: child)
-
 		if let viewableRouter = child as? ViewableRouting {
 			viewableRouter.detachFromParent()
 		}
+
+		LeakDetector.instance.expectDeallocate(object: child)
 	}
 
 	open func didLoad() {}
