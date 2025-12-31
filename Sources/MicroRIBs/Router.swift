@@ -48,13 +48,23 @@ open class Router<InteractorType>: Routing {
 
 	public func detachChild(_ child: any Routing) {
 		child.interactable.deactivate()
-		self.children.removeAll(where: { $0 as AnyObject === child as AnyObject })
 
 		if let viewableRouter = child as? ViewableRouting {
 			viewableRouter.detachFromParent()
 		}
 
-		LeakDetector.instance.expectDeallocate(object: child)
+		self.children.removeAll(where: { $0 as AnyObject === child as AnyObject })
+
+		if child is ViewableRouting {
+			DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak child] in
+
+				if let child = child {
+					LeakDetector.instance.expectDeallocate(object: child)
+				}
+			}
+		} else {
+			LeakDetector.instance.expectDeallocate(object: child)
+		}
 	}
 
 	open func didLoad() {}
