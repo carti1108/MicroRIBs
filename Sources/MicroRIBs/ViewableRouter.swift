@@ -5,33 +5,53 @@
 //  Created by Kiseok on 12/23/25.
 //
 
-@MainActor
+import Foundation
+
 public protocol ViewableRouting: Routing {
-
 	var viewControllable: ViewControllable { get }
-
-	func detachFromParent()
 }
 
-@MainActor
 open class ViewableRouter<InteractorType, ViewControllerType>: Router<InteractorType>, ViewableRouting {
+
+	public let viewController: ViewControllerType
 
 	public let viewControllable: ViewControllable
 
-	public let viewController: ViewControllerType
+	private var viewControllerDisappearExpectation: LeakDetectionHandle?
 
 	public init(interactor: InteractorType, viewController: ViewControllerType) {
 		self.viewController = viewController
 		guard let viewControllable = viewController as? ViewControllable else {
-			fatalError("\(viewController) should conform to \(ViewControllable.self)")
+			fatalError("\(viewController)는 \(ViewControllable.self)를 conform해야 합니다")
 		}
 		self.viewControllable = viewControllable
-
 		super.init(interactor: interactor)
 	}
 
-	public func detachFromParent() {
-		LeakDetector.instance.expectViewControllerDisappear(viewController: self.viewControllable.uiViewController)
+	open override func didLoad() {
+		super.didLoad()
+		self.setupViewControllerLeakDetection()
+	}
+
+	private func setupViewControllerLeakDetection() {
+		let task = Task { @MainActor [weak self] in
+			guard let self = self else { return }
+
+			for await isActive in self.interactable.isActiveStream {
+				self.viewControllerDisappearExpectation?.cancel()
+				self.viewControllerDisappearExpectation = nil
+
+				if !isActive {
+					let viewController = self.viewControllable.uiViewController
+					self.viewControllerDisappearExpectation = LeakDetector.instance.expectViewControllerDisappear(viewController: viewController)
+				}
+			}
+		}
+
+		_ = deinitCancellables.insert(task)
+	}
+
+	deinit {
+		LeakDetector.instance.expectDeallocate(object: viewController as AnyObject)
 	}
 }
-

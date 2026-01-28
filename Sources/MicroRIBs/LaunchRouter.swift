@@ -24,8 +24,8 @@ open class LaunchRouter<InteractorType, ViewControllerType>: ViewableRouter<Inte
 		window.rootViewController = viewControllable.uiViewController
 		window.makeKeyAndVisible()
 
-		self.interactable.activate()
-		self.didLoad()
+		interactable.activate()
+		load()
 	}
 }
 

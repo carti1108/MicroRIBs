@@ -7,32 +7,25 @@
 
 import Foundation
 
-public protocol ComponentScope: AnyObject {
+open class Component<DependencyType>: Dependency {
 
-	var path: [String] { get }
-}
-
-open class Component<DependencyType>: Dependency, ComponentScope {
+	// MARK: - Public Properties
 
 	public let dependency: DependencyType
 
-	public weak var parent: ComponentScope?
-
-	public init(dependency: DependencyType, parent: ComponentScope? = nil) {
-		self.dependency = dependency
-		self.parent = parent
-	}
-
-	public lazy var path: [String] = {
-		let name = String(describing: type(of: self))
-		if let parentPath = self.parent?.path {
-			return parentPath + [name]
-		}
-		return [name]
-	}()
+	// MARK: - Private Properties
 
 	private let lock = NSRecursiveLock()
+
 	private var sharedInstances = [String: Any]()
+
+	// MARK: - Initialization
+
+	public init(dependency: DependencyType) {
+		self.dependency = dependency
+	}
+
+	// MARK: - Public Methods
 
 	public final func shared<T>(__function: String = #function, _ factory: () -> T) -> T {
 		self.lock.lock()
