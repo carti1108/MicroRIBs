@@ -2,7 +2,7 @@
 //  InteractorTests.swift
 //  MicroRIBsTests
 //
-//  Created by Test on 1/10/26.
+//  Created by Kiseok on 1/10/26.
 //
 
 import Testing
@@ -11,8 +11,10 @@ import AsyncAlgorithms
 @testable import MicroRIBs
 
 @Suite("Interactor 테스트")
+@MainActor
 struct InteractorTests {
 	
+	@MainActor
 	final class MockInteractor: Interactor, @unchecked Sendable {
 		var didBecomeActiveCallCount = 0
 		var willResignActiveCallCount = 0
@@ -28,51 +30,51 @@ struct InteractorTests {
 		}
 	}
 	
-	@Test("activate 호출 시 상태 변경 및 메서드 호출 확인")
-	func test_activate() {
-		// Given
+	@Test
+	func 비활성인터랙터가있을때_activate호출시_활성상태와콜백이변경되는지() {
+		// given
 		let interactor = MockInteractor()
 		
-		// When
+		// when
 		interactor.activate()
 		
-		// Then
+		// then
 		#expect(interactor.isActive == true)
 		#expect(interactor.didBecomeActiveCallCount == 1)
 		#expect(interactor.willResignActiveCallCount == 0)
 	}
 	
-	@Test("deactivate 호출 시 상태 변경 및 메서드 호출 확인")
-	func test_deactivate() {
-		// Given
+	@Test
+	func 활성인터랙터가있을때_deactivate호출시_비활성상태와콜백이변경되는지() {
+		// given
 		let interactor = MockInteractor()
 		interactor.activate()
 		
-		// When
+		// when
 		interactor.deactivate()
 		
-		// Then
+		// then
 		#expect(interactor.isActive == false)
 		#expect(interactor.didBecomeActiveCallCount == 1)
 		#expect(interactor.willResignActiveCallCount == 1)
 	}
 	
-	@Test("이미 활성화된 상태에서 중복 activate 호출 방지")
-	func test_activate_idempotency() {
-		// Given
+	@Test
+	func 이미활성화된인터랙터가있을때_activate를다시호출시_중복콜백이발생하지않는지() {
+		// given
 		let interactor = MockInteractor()
 		interactor.activate()
 		
-		// When
+		// when
 		interactor.activate()
 		
-		// Then
+		// then
 		#expect(interactor.didBecomeActiveCallCount == 1)
 	}
 	
-	@Test("cancelOnDeactivate 동작 확인")
-	func test_cancelOnDeactivate() async {
-		// Given
+	@Test
+	func 활성인터랙터와태스크가있을때_cancelOnDeactivate호출후비활성화하면_태스크가취소되는지() async {
+		// given
 		let interactor = Interactor()
 		interactor.activate()
 		
@@ -83,33 +85,54 @@ struct InteractorTests {
 		}
 		task.cancelOnDeactivate(interactor: interactor)
 		
-		// When
+		// when
 		interactor.deactivate()
 		try? await Task.sleep(nanoseconds: 10_000_000)
 		
-		// Then
+		// then
 		#expect(task.isCancelled == true)
 	}
 	
-	@Test("비활성 상태에서 cancelOnDeactivate 호출 시 즉시 취소")
-	func test_cancelOnDeactivate_immediateCancel() async {
-		// Given
+	@Test
+	func 비활성인터랙터가있을때_cancelOnDeactivate호출시_태스크가즉시취소되는지() async {
+		// given
 		let interactor = Interactor()
 		let task = Task {
 			try? await Task.sleep(nanoseconds: 1_000_000_000)
 		}
 		
-		// When
+		// when
 		task.cancelOnDeactivate(interactor: interactor)
 		try? await Task.sleep(nanoseconds: 10_000_000)
 		
-		// Then
+		// then
+		#expect(task.isCancelled == true)
+	}
+
+	@Test
+	func 활성인터랙터와태스크가있을때_disposeOnDeactivate호출후비활성화하면_태스크가취소되는지() async {
+		// given
+		let interactor = Interactor()
+		interactor.activate()
+
+		let task = Task {
+			while !Task.isCancelled {
+				try? await Task.sleep(nanoseconds: 10_000_000)
+			}
+		}
+
+		// when
+		task.disposeOnDeactivate(interactor: interactor)
+		interactor.deactivate()
+		try? await Task.sleep(nanoseconds: 10_000_000)
+
+		// then
 		#expect(task.isCancelled == true)
 	}
 	
-	@Test("confineTo 스트림 필터링 확인")
-	func test_confineTo() async {
-		// Given
+	@Test
+	func 비활성구간과활성구간이섞인스트림이있을때_confineTo호출시_활성중값만전달되는지() async {
+		// given
 		let interactor = Interactor()
 		let (stream, continuation) = AsyncStream<Int>.makeStream()
 		let task = Task {
@@ -120,7 +143,7 @@ struct InteractorTests {
 			return values
 		}
 		
-		// When
+		// when
 		continuation.yield(1)
 		try? await Task.sleep(nanoseconds: 10_000_000)
 		interactor.activate()
@@ -133,16 +156,16 @@ struct InteractorTests {
 		continuation.yield(3)
 		task.cancel()
 		
-		// Then
+		// then
 		let receivedValues = await task.value
 		
 		#expect(receivedValues.contains(2))
 		#expect(!receivedValues.contains(3))
 	}
 	
-	@Test("활성화 시 직전 값(1)과 새로운 값(2)이 수신되는지 확인")
-	func test_confineTo_combineLatest_behavior() async {
-		// Given
+	@Test
+	func 활성화직전값과활성중값이있을때_confineTo호출시_combineLatest의미로전달되는지() async {
+		// given
 		let interactor = Interactor()
 		let (stream, continuation) = AsyncStream<Int>.makeStream(bufferingPolicy: .unbounded)
 		
@@ -154,7 +177,7 @@ struct InteractorTests {
 			return values
 		}
 		
-		// When
+		// when
 		continuation.yield(1)
 		try? await Task.sleep(nanoseconds: 10_000_000)
 		
@@ -172,22 +195,22 @@ struct InteractorTests {
 		
 		task.cancel()
 		
-		// Then
+		// then
 		let result = await task.value
 		#expect(result == [1, 2], "활성화 시점의 최신값(1)과 활성 중 받은 값(2)이 들어와야 함. 실제값: \(result)")
 	}
 	
-	@Test("deinit 시 자동 deactivate 확인")
-	func test_deinit() async {
-		// Given
+	@Test
+	func 활성인터랙터가해제될때_isActiveStream이종료되는지() async {
+		// given
 		var interactor: MockInteractor? = MockInteractor()
 		interactor?.activate()
 		let stream = interactor!.isActiveStream
 		
-		// When
+		// when
 		interactor = nil
 		
-		// Then
+		// then
 		var finished = false
 		for await _ in stream { }
 		finished = true

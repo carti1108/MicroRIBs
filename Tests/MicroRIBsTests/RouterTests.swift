@@ -2,7 +2,7 @@
 //  RouterTests.swift
 //  MicroRIBsTests
 //
-//  Created by Test on 1/10/26.
+//  Created by Kiseok on 1/10/26.
 //
 
 import Testing
@@ -10,9 +10,11 @@ import Foundation
 @testable import MicroRIBs
 
 @Suite("Router 기본 기능 및 트리 상태 전파 테스트")
+@MainActor
 struct RouterTests {
 	
 	// MARK: - Mocks (Spy)
+	@MainActor
 	final class MockInteractable: Interactable, @unchecked Sendable {
 		var isActive: Bool { isActiveSubject.value }
 		var isActiveStream: AsyncStream<Bool> { isActiveSubject.stream }
@@ -35,6 +37,7 @@ struct RouterTests {
 		}
 	}
 	
+	@MainActor
 	final class TestRouter: Router<MockInteractable>, @unchecked Sendable {
 		var didLoadCallCount = 0
 		
@@ -46,44 +49,71 @@ struct RouterTests {
 	
 	// MARK: - Tests
 	
-	@Test("attachChild: 자식을 붙이면 자식의 Interactor가 활성화되고 Router가 로드되는지 확인")
-	func test_attachChild_activatesChild() {
-		// Given
+	@Test
+	func 부모라우터와자식라우터가있을때_attachChild호출시_자식이활성화되고로드되는지() {
+		// given
 		let interactor = MockInteractable()
 		let router = TestRouter(interactor: interactor)
 		
 		let childInteractor = MockInteractable()
 		let childRouter = TestRouter(interactor: childInteractor)
 		
-		// When
+		// when
 		router.attachChild(childRouter)
 		
-		// Then
+		// then
 		#expect(router.children.count == 1)
 		#expect(router.children.first === childRouter)
 		#expect(childInteractor.activateCallCount == 1)
 	}
 	
-	@Test("detachChild: 자식을 떼면 자식의 Interactor가 비활성화되는지 확인")
-	func test_detachChild_deactivatesChild() {
-		// Given
+	@Test
+	func 부모라우터에자식이붙어있을때_detachChild호출시_자식이비활성화되는지() {
+		// given
 		let router = TestRouter(interactor: MockInteractable())
 		let childInteractor = MockInteractable()
 		let childRouter = TestRouter(interactor: childInteractor)
 		
 		router.attachChild(childRouter)
 		
-		// When
+		// when
 		router.detachChild(childRouter)
 		
-		// Then
+		// then
 		#expect(router.children.isEmpty)
 		#expect(childInteractor.deactivateCallCount == 1)
 	}
+
+	@Test
+	func 자식라우터에하위트리가있을때_detachChild호출시_부모에서만제거되고하위트리는유지되는지() async {
+		// given
+		let parentRouter = TestRouter(interactor: MockInteractable())
+		let childInteractor = MockInteractable()
+		let childRouter = TestRouter(interactor: childInteractor)
+		let grandchildInteractor = MockInteractable()
+		let grandchildRouter = TestRouter(interactor: grandchildInteractor)
+
+		childRouter.attachChild(grandchildRouter)
+		parentRouter.attachChild(childRouter)
+		parentRouter.load()
+		childInteractor.activate()
+		try? await Task.sleep(nanoseconds: 10_000_000)
+
+		// when
+		parentRouter.detachChild(childRouter)
+		try? await Task.sleep(nanoseconds: 10_000_000)
+
+		// then
+		#expect(parentRouter.children.isEmpty)
+		#expect(childRouter.children.count == 1)
+		#expect(childRouter.children.first === grandchildRouter)
+		#expect(childInteractor.isActive == false)
+		#expect(grandchildInteractor.isActive == false)
+	}
 	
-	@Test("bindSubtreeActiveState: 부모가 비활성화되면 자식들도 자동으로 비활성화되는지 확인")
-	func test_subtree_propagation() async {
-		// Given
+	@Test
+	func 부모라우터트리가로드된상태에서_부모활성상태가바뀌면_자식트리도같이변하는지() async {
+		// given
 		let parentInteractor = MockInteractable()
 		let parentRouter = TestRouter(interactor: parentInteractor)
 		
@@ -102,56 +132,56 @@ struct RouterTests {
 		
 		try? await Task.sleep(nanoseconds: 10_000_000)
 		
-		// Then
+		// then
 		#expect(childInteractor.isActive == false, "부모가 꺼지면 자식도 꺼져야 합니다")
 		
-		// When
+		// when
 		parentInteractor.activate()
 		try? await Task.sleep(nanoseconds: 10_000_000)
 		
-		// Then
+		// then
 		#expect(childInteractor.isActive == true, "부모가 켜지면 자식도 켜져야 합니다")
 	}
 	
-	@Test("Router deinit 시 자식들을 모두 정리(Cleanup)하는지 확인")
-	func test_deinit_cleansUpChildren() {
-		// Given
+	@Test
+	func 자식이붙은라우터가해제될때_자신과자식인터랙터가정리되는지() async {
+		// given
 		let interactor = MockInteractable()
 		var router: TestRouter? = TestRouter(interactor: interactor)
 		
 		let childInteractor = MockInteractable()
 		let childRouter = TestRouter(interactor: childInteractor)
 		
-		// 부모 Router 활성화 및 자식 추가
 		interactor.activate()
 		router?.attachChild(childRouter)
 		
-		// When
+		// when
 		router = nil
+		try? await Task.sleep(nanoseconds: 10_000_000)
 		
-		// Then
+		// then
 		#expect(interactor.deactivateCallCount == 1, "부모 Interactor가 deactivate되어야 함")
 		#expect(childInteractor.deactivateCallCount == 1, "자식 Interactor도 deactivate되어야 함")
 	}
 	
-	@Test("load 중복 호출 시 didLoad가 한 번만 호출되는지 확인")
-	func test_load_idempotency() {
-		// Given
+	@Test
+	func 라우터가있을때_load를여러번호출시_didLoad가한번만호출되는지() {
+		// given
 		let interactor = MockInteractable()
 		let router = TestRouter(interactor: interactor)
 		
-		// When
+		// when
 		router.load()
 		router.load()
 		router.load()
 		
-		// Then
+		// then
 		#expect(router.didLoadCallCount == 1, "didLoad는 한 번만 호출되어야 합니다")
 	}
 	
-	@Test("lifecycle 스트림이 didLoad 이벤트를 방출하는지 확인")
-	func test_lifecycle_emitsDidLoad() async {
-		// Given
+	@Test
+	func 라우터가로드될때_lifecycle스트림이_didLoad이벤트를방출하는지() async {
+		// given
 		let interactor = MockInteractable()
 		let router = TestRouter(interactor: interactor)
 		
@@ -165,18 +195,35 @@ struct RouterTests {
 
 		try? await Task.sleep(nanoseconds: 10_000_000)
 		
-		// When
+		// when
 		router.load()
 		try? await Task.sleep(nanoseconds: 10_000_000)
 		task.cancel()
 		
-		// Then
+		// then
 		#expect(receivedEvents.contains(.didLoad), "lifecycle 스트림은 didLoad 이벤트를 방출해야 합니다")
 	}
+
+	@Test
+	func 라우터가해제될때_lifecycle스트림이종료되는지() async {
+		// given
+		let interactor = MockInteractable()
+		var router: TestRouter? = TestRouter(interactor: interactor)
+		let lifecycle = router!.lifecycle
+
+		// when
+		router = nil
+
+		// then
+		var finished = false
+		for await _ in lifecycle { }
+		finished = true
+		#expect(finished)
+	}
 	
-	@Test("3단계 계층 구조에서 상태 전파 확인")
-	func test_deepHierarchy_propagation() async {
-		// Given
+	@Test
+	func 삼단계라우터트리가있을때_최상위활성상태변경이전체하위트리에전파되는지() async {
+		// given
 		let grandparentInteractor = MockInteractable()
 		let grandparentRouter = TestRouter(interactor: grandparentInteractor)
 		
@@ -198,20 +245,20 @@ struct RouterTests {
 		#expect(parentInteractor.isActive == true)
 		#expect(childInteractor.isActive == true)
 		
-		// When
+		// when
 		grandparentInteractor.deactivate()
 		try? await Task.sleep(nanoseconds: 10_000_000)
 		
-		// Then
+		// then
 		#expect(grandparentInteractor.isActive == false)
 		#expect(parentInteractor.isActive == false)
 		#expect(childInteractor.isActive == false, "손자까지 모두 비활성화되어야 합니다")
 		
-		// When
+		// when
 		grandparentInteractor.activate()
 		try? await Task.sleep(nanoseconds: 10_000_000)
 		
-		// Then
+		// then
 		#expect(grandparentInteractor.isActive == true)
 		#expect(parentInteractor.isActive == true)
 		#expect(childInteractor.isActive == true, "손자까지 모두 다시 활성화되어야 합니다")

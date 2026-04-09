@@ -12,18 +12,18 @@ import Foundation
 @Suite("CurrentValueAsyncStream 테스트")
 struct CurrentValueAsyncStreamTests {
 	
-	@Test("초기값 확인")
-	func test_initialValue() {
-		// Given
+	@Test
+	func 초기값이있는CurrentValueAsyncStream이있을때_value조회시_초기값을반환하는지() {
+		// given
 		let stream = CurrentValueAsyncStream(10)
 		
-		// Then
+		// then
 		#expect(stream.value == 10)
 	}
 	
-	@Test("구독 시 초기값 즉시 수신 및 새로운 값 업데이트 확인")
-	func test_stream_receivesInitialAndUpdates() async {
-		// Given
+	@Test
+	func 구독중인CurrentValueAsyncStream이있을때_send호출시_초기값과업데이트값을순서대로받는지() async {
+		// given
 		let stream = CurrentValueAsyncStream(0)
 		var receivedValues: [Int] = []
 		
@@ -37,20 +37,20 @@ struct CurrentValueAsyncStreamTests {
 		
 		try? await Task.sleep(nanoseconds: 1_000_000)
 		
-		// When
+		// when
 		stream.send(1)
 		stream.send(2)
 		
 		let result = await task.value
 		
-		// Then
+		// then
 		#expect(result == [0, 1, 2])
 		#expect(stream.value == 2)
 	}
 	
-	@Test("다수의 구독자가 동시에 값을 수신하는지 확인")
-	func test_multipleSubscribers() async {
-		// Given
+	@Test
+	func 다수의구독자가있는CurrentValueAsyncStream이있을때_send호출시_모두같은값을받는지() async {
+		// given
 		let stream = CurrentValueAsyncStream("A")
 		
 		let task1 = Task {
@@ -71,21 +71,21 @@ struct CurrentValueAsyncStreamTests {
 		
 		try? await Task.sleep(nanoseconds: 1_000_000)
 		
-		// When
+		// when
 		stream.send("B")
 		stream.finish()
 		
 		let result1 = await task1.value
 		let result2 = await task2.value
 		
-		// Then
+		// then
 		#expect(result1 == ["A", "B"])
 		#expect(result2 == ["A", "B"])
 	}
 	
-	@Test("finish 호출 시 스트림이 정상 종료되는지 확인")
-	func test_finish_terminatesStream() async {
-		// Given
+	@Test
+	func 구독중인CurrentValueAsyncStream이있을때_finish호출시_정상종료되는지() async {
+		// given
 		let stream = CurrentValueAsyncStream(1)
 		var finished = false
 		
@@ -96,34 +96,34 @@ struct CurrentValueAsyncStreamTests {
 		
 		try? await Task.sleep(nanoseconds: 1_000_000)
 		
-		// When
+		// when
 		stream.finish()
 		
 		_ = await task.result
 		
-		// Then
+		// then
 		#expect(finished)
 	}
 	
-	@Test("종료된 스트림에 구독 시 값 방출 없이 즉시 종료되는지 확인")
-	func test_subscribeAfterFinish() async {
-		// Given
+	@Test
+	func 종료된CurrentValueAsyncStream이있을때_새로구독하면_즉시종료되는지() async {
+		// given
 		let stream = CurrentValueAsyncStream(1)
 		stream.finish()
 		
-		// When
+		// when
 		var receivedCount = 0
 		for await _ in stream.stream {
 			receivedCount += 1
 		}
 		
-		// Then
+		// then
 		#expect(receivedCount == 0)
 	}
 	
-	@Test("종료 후 send 호출 시 값이 무시되는지 확인")
-	func test_sendAfterFinish_isIgnored() async {
-		// Given
+	@Test
+	func 종료된CurrentValueAsyncStream이있을때_send호출시_값이무시되는지() async {
+		// given
 		let stream = CurrentValueAsyncStream(1)
 		var values: [Int] = []
 		
@@ -135,35 +135,36 @@ struct CurrentValueAsyncStreamTests {
 		
 		try? await Task.sleep(nanoseconds: 1_000_000)
 		
-		// When
+		// when
 		stream.finish()
 		stream.send(2)
 		
 		_ = await task.result
 		
-		// Then
+		// then
 		#expect(values == [1])
 	}
 	
-	@Test("deinit 발생 시 스트림이 종료되는지 확인")
-	func test_deinit_finishesStream() async {
-		// Given
+	@Test
+	func 현재값스트림이해제될때_구독스트림이종료되는지() async {
+		// given
 		var stream: CurrentValueAsyncStream<Int>? = CurrentValueAsyncStream(100)
+		let observedStream = stream!.stream
 		var finished = false
 		
 		let task = Task {
-			for await _ in stream!.stream {}
+			for await _ in observedStream {}
 			finished = true
 		}
 		
 		try? await Task.sleep(nanoseconds: 1_000_000)
 		
-		// When
+		// when
 		stream = nil
 		
 		_ = await task.result
 		
-		// Then
+		// then
 		#expect(finished)
 	}
 }

@@ -20,9 +20,9 @@ struct CompositeCancellableTests {
 		}
 	}
 	
-	@Test("cancel() 호출 시 모든 작업 취소")
-	func test_cancel_cancelsAll() {
-		// Given
+	@Test
+	func 여러작업이있는CompositeCancellable이있을때_cancel호출시_모든작업이취소되는지() {
+		// given
 		let composite = CompositeCancellable()
 		let task1 = MockCancellable()
 		let task2 = MockCancellable()
@@ -30,32 +30,32 @@ struct CompositeCancellableTests {
 		composite.insert(task1)
 		composite.insert(task2)
 		
-		// When
+		// when
 		composite.cancel()
 		
-		// Then
+		// then
 		#expect(task1.isCancelled)
 		#expect(task2.isCancelled)
 	}
 	
-	@Test("취소된 상태에서 insert 시 즉시 취소")
-	func test_insert_afterCancel() {
-		// Given
+	@Test
+	func 이미취소된CompositeCancellable이있을때_insert호출시_즉시취소되는지() {
+		// given
 		let composite = CompositeCancellable()
 		composite.cancel()
 		
 		let task = MockCancellable()
 		
-		// When
+		// when
 		composite.insert(task)
 		
-		// Then
+		// then
 		#expect(task.isCancelled)
 	}
 	
-	@Test("remove 호출 시 해당 작업 취소")
-	func test_remove_cancelsSpecificTask() {
-		// Given
+	@Test
+	func 여러작업이있는CompositeCancellable이있을때_remove호출시_해당작업만취소되는지() {
+		// given
 		let composite = CompositeCancellable()
 		let task1 = MockCancellable()
 		let task2 = MockCancellable()
@@ -63,25 +63,25 @@ struct CompositeCancellableTests {
 		let key1 = composite.insert(task1)
 		composite.insert(task2)
 		
-		// When
+		// when
 		composite.remove(for: key1)
 		
-		// Then
+		// then
 		#expect(task1.isCancelled)
 		#expect(!task2.isCancelled)
 	}
 	
-	@Test("deinit 시 모든 작업 취소")
-	func test_deinit_cancelsAll() {
-		// Given
+	@Test
+	func 작업이있는CompositeCancellable이해제될때_모든작업이취소되는지() {
+		// given
 		var composite: CompositeCancellable? = CompositeCancellable()
 		let task = MockCancellable()
 		composite?.insert(task)
 		
-		// When
+		// when
 		composite = nil
 		
-		// Then
+		// then
 		#expect(task.isCancelled)
 	}
 }

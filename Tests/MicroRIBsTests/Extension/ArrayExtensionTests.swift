@@ -2,7 +2,7 @@
 //  ArrayExtensionTests.swift
 //  MicroRIBsTests
 //
-//  Created by Test on 1/10/26.
+//  Created by Kiseok on 1/10/26.
 //
 
 import Testing
@@ -16,62 +16,62 @@ struct ArrayExtensionTests {
 		init(id: Int) { self.id = id }
 	}
 	
-	@Test("참조(주소)가 동일한 요소를 정확히 제거하는지 확인")
-	func test_removeElementByReference_removesCorrectInstance() {
-		// Given
+	@Test
+	func 같은참조의요소가있을때_removeElementByReference호출시_정확한인스턴스만제거되는지() {
+		// given
 		let item1 = MockItem(id: 1)
 		let item2 = MockItem(id: 2)
 		var array = [item1, item2]
 		
-		// When
+		// when
 		array.removeElementByReference(item1)
 		
-		// Then
+		// then
 		#expect(array.count == 1)
 		#expect(array.first === item2, "item1은 지워지고 item2만 남아야 함")
 	}
 	
-	@Test("내용(프로퍼티)은 같지만 다른 인스턴스인 경우 제거되지 않아야 함")
-	func test_removeElementByReference_checksIdentity() {
-		// Given
+	@Test
+	func 값은같지만다른인스턴스가있을때_removeElementByReference호출시_제거되지않는지() {
+		// given
 		let originalItem = MockItem(id: 100)
 		let sameValueItem = MockItem(id: 100)
 		
 		var array = [originalItem]
 		
-		// When
+		// when
 		array.removeElementByReference(sameValueItem)
 		
-		// Then
+		// then
 		#expect(array.count == 1, "주소가 다르므로 지워지면 안 됨")
 		#expect(array.first === originalItem, "원래 객체가 그대로 있어야 함")
 	}
 	
-	@Test("배열에 없는 요소를 제거하려 할 때 안전하게 처리되는지 확인")
-	func test_removeElementByReference_notFound() {
-		// Given
+	@Test
+	func 배열에없는요소가있을때_removeElementByReference호출시_안전하게무시되는지() {
+		// given
 		let item1 = MockItem(id: 1)
 		let newItem = MockItem(id: 2)
 		var array = [item1]
 		
-		// When
+		// when
 		array.removeElementByReference(newItem)
 		
-		// Then
+		// then
 		#expect(array.count == 1)
 		#expect(array.first === item1)
 	}
 	
-	@Test("중복된 객체가 있을 경우 첫 번째 요소만 제거되는지 확인 (firstIndex 동작)")
-	func test_removeElementByReference_removesFirstOccurrence() {
-		// Given
+	@Test
+	func 같은참조가중복된배열이있을때_removeElementByReference호출시_첫번째요소만제거되는지() {
+		// given
 		let item = MockItem(id: 1)
 		var array = [item, item]
 		
-		// When
+		// when
 		array.removeElementByReference(item)
 		
-		// Then
+		// then
 		#expect(array.count == 1, "하나만 지워져야 함")
 		#expect(array.first === item, "나머지 하나는 남아있어야 함")
 	}

@@ -12,9 +12,9 @@ import Foundation
 @Suite("PassthroughAsyncSubject 테스트")
 struct PassthroughAsyncSubjectTests {
 	
-	@Test("구독 이후에 보낸 값만 정상적으로 수신되는지 확인")
-	func test_send_receivesValuesAfterSubscription() async {
-		// Given
+	@Test
+	func 구독중인PassthroughAsyncSubject가있을때_send호출시_구독이후값만전달되는지() async {
+		// given
 		let subject = PassthroughAsyncSubject<Int>()
 		var receivedValues: [Int] = []
 		
@@ -27,20 +27,20 @@ struct PassthroughAsyncSubjectTests {
 		
 		try? await Task.sleep(nanoseconds: 1_000_000)
 		
-		// When
+		// when
 		subject.send(1)
 		subject.send(2)
 		subject.finish()
 		
 		let result = await task.value
 		
-		// Then
+		// then
 		#expect(result == [1, 2])
 	}
 	
-	@Test("다수의 구독자가 동시에 값을 수신하는지 확인")
-	func test_multipleSubscribers_receiveValues() async {
-		// Given
+	@Test
+	func 다수의구독자가있는PassthroughAsyncSubject가있을때_send호출시_모두같은값을받는지() async {
+		// given
 		let subject = PassthroughAsyncSubject<String>()
 		
 		let task1 = Task {
@@ -61,21 +61,21 @@ struct PassthroughAsyncSubjectTests {
 		
 		try? await Task.sleep(nanoseconds: 1_000_000)
 		
-		// When
+		// when
 		subject.send("Event")
 		subject.finish()
 		
 		let result1 = await task1.value
 		let result2 = await task2.value
 		
-		// Then
+		// then
 		#expect(result1 == ["Event"])
 		#expect(result2 == ["Event"])
 	}
 	
-	@Test("finish 호출 시 스트림이 종료되는지 확인")
-	func test_finish_terminatesStream() async {
-		// Given
+	@Test
+	func 구독중인PassthroughAsyncSubject가있을때_finish호출시_정상종료되는지() async {
+		// given
 		let subject = PassthroughAsyncSubject<Int>()
 		var finished = false
 		
@@ -86,34 +86,34 @@ struct PassthroughAsyncSubjectTests {
 		
 		try? await Task.sleep(nanoseconds: 1_000_000)
 		
-		// When
+		// when
 		subject.finish()
 		
 		_ = await task.result
 		
-		// Then
+		// then
 		#expect(finished)
 	}
 	
-	@Test("이미 종료된 Subject에 구독 시 즉시 종료되는지 확인")
-	func test_subscribeAfterFinish_terminatesImmediately() async {
-		// Given
+	@Test
+	func 종료된PassthroughAsyncSubject가있을때_새로구독하면_즉시종료되는지() async {
+		// given
 		let subject = PassthroughAsyncSubject<Int>()
 		subject.finish()
 		
-		// When
+		// when
 		var receivedCount = 0
 		for await _ in subject.stream {
 			receivedCount += 1
 		}
 		
-		// Then
+		// then
 		#expect(receivedCount == 0)
 	}
 	
-	@Test("종료된 이후 send 호출 시 값이 전달되지 않는지 확인")
-	func test_sendAfterFinish_ignored() async {
-		// Given
+	@Test
+	func 종료된PassthroughAsyncSubject가있을때_send호출시_값이무시되는지() async {
+		// given
 		let subject = PassthroughAsyncSubject<Int>()
 		var receivedValues: [Int] = []
 		
@@ -126,36 +126,37 @@ struct PassthroughAsyncSubjectTests {
 		
 		try? await Task.sleep(nanoseconds: 1_000_000)
 		
-		// When
+		// when
 		subject.send(1)
 		subject.finish()
 		subject.send(2)
 		
 		let result = await task.value
 		
-		// Then
+		// then
 		#expect(result == [1])
 	}
 	
-	@Test("deinit 시 스트림이 자동으로 종료되는지 확인")
-	func test_deinit_terminatesStream() async {
-		// Given
+	@Test
+	func 패스스루서브젝트가해제될때_구독스트림이종료되는지() async {
+		// given
 		var subject: PassthroughAsyncSubject<Int>? = PassthroughAsyncSubject()
+		let observedStream = subject!.stream
 		var finished = false
 		
 		let task = Task {
-			for await _ in subject!.stream { }
+			for await _ in observedStream { }
 			finished = true
 		}
 		
 		try? await Task.sleep(nanoseconds: 1_000_000)
 		
-		// When
+		// when
 		subject = nil
 		
 		_ = await task.result
 		
-		// Then
+		// then
 		#expect(finished)
 	}
 }

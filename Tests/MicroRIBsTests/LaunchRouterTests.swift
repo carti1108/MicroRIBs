@@ -13,6 +13,7 @@ import UIKit
 @MainActor
 struct LaunchRouterTests {
 
+	@MainActor
 	final class MockInteractable: Interactable, @unchecked Sendable {
 		let isActiveSubject = CurrentValueAsyncStream<Bool>(false)
 
@@ -35,52 +36,52 @@ struct LaunchRouterTests {
 		}
 	}
 
+	@MainActor
 	final class MockViewController: UIViewController, ViewControllable, @unchecked Sendable {
 	}
 
+	@MainActor
 	final class TestLaunchRouter: LaunchRouter<MockInteractable, MockViewController> {
 		var didLoadCallCount = 0
 
 		override func didLoad() {
 			super.didLoad()
-			MainActor.assumeIsolated {
-				didLoadCallCount += 1
-			}
+			didLoadCallCount += 1
 		}
 	}
 
-	@Test("launch 호출 시 Window 설정 및 Interactor 활성화 확인")
-	func test_launch() {
-		// Given
+	@Test
+	func 라우터와윈도우가있을때_launch호출시_루트뷰설정과활성화가되는지() {
+		// given
 		let interactor = MockInteractable()
 		let viewController = MockViewController()
 		let router = TestLaunchRouter(interactor: interactor, viewController: viewController)
 		let window = UIWindow()
 
-		// When
+		// when
 		router.launch(from: window)
 
-		// Then
+		// then
 		#expect(window.rootViewController === viewController)
 		#expect(window.isKeyWindow)
 		#expect(interactor.activateCallCount == 1)
 		#expect(router.didLoadCallCount == 1)
 	}
 	
-	@Test("launch 중복 호출 시 안전하게 처리되는지 확인")
-	func test_launch_multipleCalls() {
-		// Given
+	@Test
+	func 라우터와윈도우가있을때_launch를여러번호출시_중복활성화와중복로드가없는지() {
+		// given
 		let interactor = MockInteractable()
 		let viewController = MockViewController()
 		let router = TestLaunchRouter(interactor: interactor, viewController: viewController)
 		let window = UIWindow()
 		
-		// When
+		// when
 		router.launch(from: window)
 		router.launch(from: window)
 		router.launch(from: window)
 		
-		// Then
+		// then
 		#expect(interactor.activateCallCount == 1, "activate는 한 번만 호출되어야 합니다")
 		#expect(router.didLoadCallCount == 1, "didLoad는 한 번만 호출되어야 합니다")
 		#expect(window.rootViewController === viewController)

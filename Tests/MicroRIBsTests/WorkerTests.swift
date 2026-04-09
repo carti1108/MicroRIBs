@@ -10,8 +10,10 @@ import Foundation
 @testable import MicroRIBs
 
 @Suite("Worker 테스트")
+@MainActor
 struct WorkerTests {
 
+	@MainActor
 	final class MockInteractorScope: InteractorScope, @unchecked Sendable {
 		let isActiveSubject = CurrentValueAsyncStream<Bool>(false)
 
@@ -23,6 +25,7 @@ struct WorkerTests {
 		}
 	}
 
+	@MainActor
 	final class TestWorker: Worker, @unchecked Sendable {
 		var didStartCallCount = 0
 		var didStopCallCount = 0
@@ -38,26 +41,26 @@ struct WorkerTests {
 		}
 	}
 
-	@Test("Interactor가 Active 상태일 때 start 호출 시 didStart가 실행되는지 확인")
-	func test_start_whenInteractorActive() async {
-		// Given
+	@Test
+	func 활성인터랙터스코프가있을때_start호출시_didStart가실행되는지() async {
+		// given
 		let interactorScope = MockInteractorScope()
 		interactorScope.setActive(true)
 		let worker = TestWorker()
 
-		// When
+		// when
 		worker.start(interactorScope)
 		try? await Task.sleep(nanoseconds: 10_000_000)
 
-		// Then
+		// then
 		#expect(worker.isStarted == true)
 		#expect(worker.didStartCallCount == 1)
 		#expect(worker.didStopCallCount == 0)
 	}
 
-	@Test("Interactor가 Inactive 상태일 때 start하면 대기하다가, Active 될 때 didStart 실행되는지 확인")
-	func test_start_whenInteractorInactive_thenActive() async {
-		// Given
+	@Test
+	func 비활성인터랙터스코프가있을때_start호출후활성화되면_didStart가실행되는지() async {
+		// given
 		let interactorScope = MockInteractorScope()
 		interactorScope.setActive(false)
 		let worker = TestWorker()
@@ -67,59 +70,59 @@ struct WorkerTests {
 
 		#expect(worker.didStartCallCount == 0)
 
-		// When
+		// when
 		interactorScope.setActive(true)
 		try? await Task.sleep(nanoseconds: 10_000_000)
 
-		// Then
+		// then
 		#expect(worker.didStartCallCount == 1)
 	}
 
-	@Test("동작 중 Interactor가 꺼지면 Worker도 멈추고(didStop), 다시 켜지면 재시작(didStart)하는지 확인")
-	func test_interactor_toggling() async {
-		// Given
+	@Test
+	func 시작된워커가있을때_인터랙터활성상태가토글되면_stop과restart가반영되는지() async {
+		// given
 		let interactorScope = MockInteractorScope()
 		interactorScope.setActive(true)
 		let worker = TestWorker()
 		worker.start(interactorScope)
 		try? await Task.sleep(nanoseconds: 10_000_000)
 
-		// When
+		// when
 		interactorScope.setActive(false)
 		try? await Task.sleep(nanoseconds: 10_000_000)
 
-		// Then
+		// then
 		#expect(worker.didStopCallCount == 1)
 		#expect(worker.isStarted == true)
 
-		// When
+		// when
 		interactorScope.setActive(true)
 		try? await Task.sleep(nanoseconds: 10_000_000)
 
-		// Then
+		// then
 		#expect(worker.didStartCallCount == 2)
 	}
 
-	@Test("수동으로 stop 호출 시 didStop이 실행되고 상태가 변경되는지 확인")
-	func test_manual_stop() async {
-		// Given
+	@Test
+	func 시작된워커가있을때_stop호출시_중지상태와didStop이반영되는지() async {
+		// given
 		let interactorScope = MockInteractorScope()
 		interactorScope.setActive(true)
 		let worker = TestWorker()
 		worker.start(interactorScope)
 		try? await Task.sleep(nanoseconds: 10_000_000)
 
-		// When
+		// when
 		worker.stop()
 
-		// Then
+		// then
 		#expect(worker.isStarted == false)
 		#expect(worker.didStopCallCount == 1)
 	}
 
-	@Test("cancelOnStop: Worker가 멈출 때 연결된 Task가 취소되는지 확인")
-	func test_cancelOnStop() async {
-		// Given
+	@Test
+	func 시작된워커와태스크가있을때_cancelOnStop호출후stop하면_태스크가취소되는지() async {
+		// given
 		let interactorScope = MockInteractorScope()
 		interactorScope.setActive(true)
 		let worker = TestWorker()
@@ -132,35 +135,59 @@ struct WorkerTests {
 			}
 		}
 
-		// When
+		// when
 		task.cancelOnStop(worker)
 		worker.stop()
 		try? await Task.sleep(nanoseconds: 10_000_000)
 
-		// Then
+		// then
 		#expect(task.isCancelled == true)
 	}
 
-	@Test("cancelOnStop: Worker가 이미 정지 상태일 때 호출하면 즉시 취소되는지 확인 (Edge Case)")
-	func test_cancelOnStop_whenWorkerIsStopped() async {
-		// Given
+	@Test
+	func 정지된워커가있을때_cancelOnStop호출시_태스크가즉시취소되는지() async {
+		// given
 		let worker = TestWorker()
 
 		let task = Task {
 			try? await Task.sleep(nanoseconds: 1_000_000_000)
 		}
 
-		// When
+		// when
 		task.cancelOnStop(worker)
 		try? await Task.sleep(nanoseconds: 10_000_000)
 
-		// Then
+		// then
 		#expect(task.isCancelled == true)
 	}
 
-	@Test("deinit 시 자동으로 stop 되어 리소스가 정리되는지 확인")
-	func test_deinit_stopsWorker() async {
-		// Given
+	@Test
+	func 시작된워커와태스크가있을때_disposeOnStop호출후stop하면_태스크가취소되는지() async {
+		// given
+		let interactorScope = MockInteractorScope()
+		interactorScope.setActive(true)
+		let worker = TestWorker()
+		worker.start(interactorScope)
+		try? await Task.sleep(nanoseconds: 10_000_000)
+
+		let task = Task {
+			while !Task.isCancelled {
+				try? await Task.sleep(nanoseconds: 10_000_000)
+			}
+		}
+
+		// when
+		task.disposeOnStop(worker)
+		worker.stop()
+		try? await Task.sleep(nanoseconds: 10_000_000)
+
+		// then
+		#expect(task.isCancelled == true)
+	}
+
+	@Test
+	func 시작된워커가해제될때_isStartedStream이종료되는지() async {
+		// given
 		let interactorScope = MockInteractorScope()
 		interactorScope.setActive(true)
 
@@ -170,10 +197,10 @@ struct WorkerTests {
 
 		let isStartedStream = worker!.isStartedStream
 
-		// When
+		// when
 		worker = nil
 
-		// Then
+		// then
 		var finished = false
 		for await _ in isStartedStream { }
 		finished = true

@@ -12,8 +12,9 @@ import Foundation
 @Suite("AsyncSequence Extension 테스트")
 struct AsyncSequenceExtensionTests {
 	
-	@Test("정상적인 값들이 순서대로 잘 전달되는지 확인")
-	func test_valuesAreStreamed() async {
+	@Test
+	func 값이있는AsyncSequence가있을때_eraseToStream호출시_순서대로전달되는지() async {
+		// given
 		let sourceStream = AsyncStream<Int> { continuation in
 			continuation.yield(1)
 			continuation.yield(2)
@@ -21,10 +22,10 @@ struct AsyncSequenceExtensionTests {
 			continuation.finish()
 		}
 		
-		// When
+		// when
 		let erasedStream = sourceStream.eraseToStream()
 		
-		// Then
+		// then
 		var result: [Int] = []
 		for await value in erasedStream {
 			result.append(value)
@@ -33,18 +34,18 @@ struct AsyncSequenceExtensionTests {
 		#expect(result == [1, 2, 3], "소스 시퀀스의 값이 순서대로 전달되어야 합니다.")
 	}
 	
-	@Test("소스에서 에러가 발생하면 스트림이 (에러 없이) 조용히 종료되는지 확인")
-	func test_errorSilencing() async {
-		// Given
+	@Test
+	func 에러가발생하는AsyncThrowingStream이있을때_eraseToStream호출시_에러없이종료되는지() async {
+		// given
 		let sourceStream = AsyncThrowingStream<Int, Error> { continuation in
 			continuation.yield(100)
 			continuation.finish(throwing: NSError(domain: "TestError", code: -1))
 		}
 		
-		// When
+		// when
 		let erasedStream = sourceStream.eraseToStream()
 		
-		// Then
+		// then
 		var result: [Int] = []
 		for await value in erasedStream {
 			result.append(value)
@@ -53,9 +54,9 @@ struct AsyncSequenceExtensionTests {
 		#expect(result == [100], "에러 발생 전의 값은 전달되고, 에러 발생 시 스트림이 종료되어야 합니다.")
 	}
 	
-	@Test("외부 Task가 취소되면 내부 소스 시퀀스 구독도 취소되는지 확인")
-	func test_cancellationPropagation() async {
-		// Given
+	@Test
+	func 외부태스크가취소될때_eraseToStream내부구독도종료되는지() async {
+		// given
 		await confirmation("Source stream should be terminated", expectedCount: 1) { confirm in
 			let sourceStream = AsyncStream<Int> { continuation in
 				continuation.onTermination = { _ in
@@ -67,7 +68,7 @@ struct AsyncSequenceExtensionTests {
 			
 			let erasedStream = sourceStream.eraseToStream()
 			
-			// When
+			// when
 			let consumeTask = Task {
 				for await _ in erasedStream {
 					

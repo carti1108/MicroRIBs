@@ -13,6 +13,7 @@ import UIKit
 @MainActor
 struct ViewableRouterTests {
 
+	@MainActor
 	final class MockInteractable: Interactable, @unchecked Sendable {
 		let isActiveSubject = CurrentValueAsyncStream<Bool>(false)
 
@@ -27,6 +28,7 @@ struct ViewableRouterTests {
 		}
 	}
 
+	@MainActor
 	final class MockViewController: UIViewController, ViewControllable, @unchecked Sendable {
 		var uiViewControllerAccessCount = 0
 
@@ -36,31 +38,41 @@ struct ViewableRouterTests {
 		}
 	}
 
+	@MainActor
 	final class TestViewableRouter: ViewableRouter<MockInteractable, MockViewController> {
 	}
 
-	@Test("초기화 테스트")
-	func test_init() {
-		// Given
+	@MainActor
+	final class NoSuperDidLoadRouter: ViewableRouter<MockInteractable, MockViewController> {
+		var didLoadCallCount = 0
+
+		override func didLoad() {
+			didLoadCallCount += 1
+		}
+	}
+
+	@Test
+	func 인터랙터와뷰컨트롤러가있을때_초기화시_참조가정상설정되는지() {
+		// given
 		let interactor = MockInteractable()
 		let viewController = MockViewController()
 
-		// When
+		// when
 		let router = TestViewableRouter(interactor: interactor, viewController: viewController)
 
-		// Then
+		// then
 		#expect(router.viewControllable === viewController)
 		#expect(router.viewController === viewController)
 	}
 
-	@Test("LeakDetection 바인딩 테스트")
-	func test_leakDetection_binding() async {
-		// Given
+	@Test
+	func 라우터가로드된상태에서_인터랙터가비활성화되면_뷰누수감지바인딩이동작하는지() async {
+		// given
 		let interactor = MockInteractable()
 		let viewController = MockViewController()
 		let router = TestViewableRouter(interactor: interactor, viewController: viewController)
 
-		// When
+		// when
 		router.load()
 		interactor.setActive(true)
 		try? await Task.sleep(nanoseconds: 10_000_000)
@@ -68,30 +80,30 @@ struct ViewableRouterTests {
 		interactor.setActive(false)
 		try? await Task.sleep(nanoseconds: 10_000_000)
 
-		// Then
+		// then
 		#expect(viewController.uiViewControllerAccessCount > 0)
 	}
 
-	@Test("Active 상태일 때 LeakDetection 취소 테스트")
-	func test_leakDetection_cancels_on_active() async {
-		// Given
+	@Test
+	func 라우터가로드된상태에서_인터랙터가활성화되면_뷰누수감지예약이취소되는지() async {
+		// given
 		let interactor = MockInteractable()
 		let viewController = MockViewController()
 		let router = TestViewableRouter(interactor: interactor, viewController: viewController)
 		router.load()
 		let initialCount = viewController.uiViewControllerAccessCount
 
-		// When
+		// when
 		interactor.setActive(true)
 		try? await Task.sleep(nanoseconds: 10_000_000)
 
-		// Then
+		// then
 		#expect(viewController.uiViewControllerAccessCount == initialCount)
 	}
 
-	@Test("LeakDetection 취소 로직 검증: Active -> Inactive -> Active")
-	func test_leakDetection_cancellation_logic() async {
-		// Given
+	@Test
+	func 인터랙터상태가_활성에서비활성후활성으로변할때_누수감지예약이재설정되는지() async {
+		// given
 		let interactor = MockInteractable()
 		let viewController = MockViewController()
 		let router = TestViewableRouter(interactor: interactor, viewController: viewController)
@@ -109,22 +121,48 @@ struct ViewableRouterTests {
 		interactor.setActive(true)
 		try? await Task.sleep(nanoseconds: 10_000_000)
 
-		// Then
+		// then
 		#expect(viewController.uiViewControllerAccessCount == countAfterInactive)
 	}
 
-	@Test("deinit 테스트")
-	func test_deinit_leakDetection() async {
-		// Given
+	@Test
+	func 뷰어블라우터가해제될때_정상해제되는지() async {
+		// given
 		let interactor = MockInteractable()
 		let viewController = MockViewController()
 		var router: TestViewableRouter? = TestViewableRouter(interactor: interactor, viewController: viewController)
 		router?.load()
 
-		// When
+		// when
 		router = nil
 
-		// Then
+		// then
 		#expect(router == nil)
+	}
+
+	@Test
+	func didLoad에서super를호출하지않아도_로드호출시_누수감지바인딩이유지되는지() async {
+		// given
+		let interactor = MockInteractable()
+		let viewController = MockViewController()
+		let router = NoSuperDidLoadRouter(interactor: interactor, viewController: viewController)
+
+		// when
+		router.load()
+		interactor.setActive(false)
+		try? await Task.sleep(nanoseconds: 10_000_000)
+
+		// then
+		#expect(router.didLoadCallCount == 1)
+		#expect(viewController.uiViewControllerAccessCount > 0)
+	}
+
+	@Test
+	func 뷰컨트롤러가있을때_uiviewController별칭호출시_동일인스턴스를반환하는지() {
+		// given
+		let viewController = MockViewController()
+
+		// then
+		#expect(viewController.uiviewController === viewController)
 	}
 }
