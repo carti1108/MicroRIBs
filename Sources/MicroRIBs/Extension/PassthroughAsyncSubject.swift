@@ -5,6 +5,13 @@
 //  Created by Kiseok on 1/26/26.
 //
 
+// Migration note:
+// RxSwift replacement mapping:
+// - `PublishSubject<Element>()` -> `PassthroughAsyncSubject<Element>()`
+// - `subject.onNext(value)` -> `subject.send(value)`
+// - `subject.asObservable()` -> `subject.stream`
+// - `subject.onCompleted()` -> `subject.finish()`
+
 import Foundation
 
 public final class PassthroughAsyncSubject<Value: Sendable>: @unchecked Sendable {

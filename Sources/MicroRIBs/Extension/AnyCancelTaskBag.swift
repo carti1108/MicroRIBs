@@ -5,6 +5,12 @@
 //  Created by Kiseok on 1/26/26.
 //
 
+// Migration note:
+// RxSwift replacement mapping:
+// - `DisposeBag` / ad-hoc grouped `Disposable` storage -> `AnyCancelTaskBag`
+// - `disposable.disposed(by: bag)`-style ownership -> `task.store(in: bag)`
+// - migration alias: `task.disposeWith(bag)`
+
 import Foundation
 
 public final class AnyCancelTaskBag {
@@ -36,5 +42,9 @@ public final class AnyCancelTaskBag {
 public extension Task {
 	func store(in bag: AnyCancelTaskBag) {
 		bag.insert(self)
+	}
+
+	func disposeWith(_ bag: AnyCancelTaskBag) {
+		store(in: bag)
 	}
 }

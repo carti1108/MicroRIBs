@@ -5,6 +5,15 @@
 //  Created by Kiseok on 1/26/26.
 //
 
+// Migration note:
+// RxSwift replacement mapping:
+// - `BehaviorSubject<Element>(value: initialValue)` -> `CurrentValueAsyncStream<Element>(initialValue)`
+// - `BehaviorRelay<Element>(value: initialValue)` -> `CurrentValueAsyncStream<Element>(initialValue)`
+// - `subject.value()` / `relay.value` -> `stream.value`
+// - `subject.onNext(value)` / `relay.accept(value)` -> `stream.send(value)`
+// - `subject.asObservable()` -> `stream.stream`
+// - `subject.onCompleted()` -> `stream.finish()`
+
 import Foundation
 
 public final class CurrentValueAsyncStream<Value: Sendable>: @unchecked Sendable {

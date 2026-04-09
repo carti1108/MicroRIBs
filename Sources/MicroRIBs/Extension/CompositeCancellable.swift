@@ -5,6 +5,14 @@
 //  Created by Kiseok on 1/26/26.
 //
 
+// Migration note:
+// RxSwift replacement mapping:
+// - `CompositeDisposable` -> `CompositeCancellable`
+// - `composite.insert(disposable)` -> `composite.insert(taskLike)`
+// - `composite.dispose()` -> `composite.cancel()`
+// This is used for task teardown in places that previously stored Rx
+// subscriptions.
+
 import Foundation
 
 public final class CompositeCancellable: @unchecked Sendable {
