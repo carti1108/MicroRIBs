@@ -5,6 +5,11 @@
 //  Created by Kiseok on 12/23/25.
 //
 
+// Migration note:
+// RxSwift replacement mapping:
+// - No Rx type was used here in upstream RIBs.
+// - The Swift Concurrency migration here is `@MainActor` isolation only.
+
 import UIKit
 
 @MainActor
@@ -13,6 +18,7 @@ public protocol LaunchRouting: ViewableRouting {
 	func launch(from window: UIWindow)
 }
 
+@MainActor
 open class LaunchRouter<InteractorType, ViewControllerType>: ViewableRouter<InteractorType, ViewControllerType>, LaunchRouting {
 
 	public override init(interactor: InteractorType, viewController: ViewControllerType) {
@@ -28,4 +34,3 @@ open class LaunchRouter<InteractorType, ViewControllerType>: ViewableRouter<Inte
 		load()
 	}
 }
-

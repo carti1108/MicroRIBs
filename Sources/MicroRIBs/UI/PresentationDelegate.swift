@@ -7,6 +7,7 @@
 
 import UIKit
 
+@MainActor
 public final class PresentationDelegate: NSObject, UIAdaptivePresentationControllerDelegate {
 
 	// MARK: - Private Properties
@@ -33,5 +34,4 @@ public final class PresentationDelegate: NSObject, UIAdaptivePresentationControl
 		self.onDismiss()
 	}
 }
-
 

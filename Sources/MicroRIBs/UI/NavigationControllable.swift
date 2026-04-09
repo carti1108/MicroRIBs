@@ -7,6 +7,7 @@
 
 import UIKit
 
+@MainActor
 public final class NavigationControllerable: ViewControllable {
 
 	// MARK: - Public Properties

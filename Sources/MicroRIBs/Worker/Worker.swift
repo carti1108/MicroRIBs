@@ -5,8 +5,26 @@
 //  Created by Kiseok on 1/6/26.
 //
 
+// Migration note:
+// RxSwift replacement mapping:
+// - `private let isStartedSubject = BehaviorSubject<Bool>(value: false)`
+//   -> `private let isStartedSubject = CurrentValueAsyncStream<Bool>(false)`
+// - `var isStartedStream: Observable<Bool>` -> `var isStartedStream: AsyncStream<Bool>`
+// - `try isStartedSubject.value()` -> `isStartedSubject.value`
+// - `isStartedSubject.onNext(true/false)` -> `isStartedSubject.send(true/false)`
+// - `isStartedSubject.onCompleted()` -> `isStartedSubject.finish()`
+// - `fileprivate var disposable: CompositeDisposable?`
+//   -> `fileprivate var workerCancellable: CompositeCancellable?`
+// - `private var interactorBindingDisposable: Disposable?`
+//   -> `private var interactorBindingCancellable: AnyCancellableTask?`
+// - `interactorScope.isActiveStream.subscribe(onNext:)`
+//   -> `Task { for await isActive in interactorScope.isActiveStream { ... } }`
+// - Rx `Disposable.disposeOnStop(worker:)`
+//   -> `Task.cancelOnStop(worker:)` / `Task.disposeOnStop(worker:)`
+
 import Foundation
 
+@MainActor
 public protocol Working: AnyObject {
 
 	func start(_ interactorScope: InteractorScope)
@@ -18,6 +36,7 @@ public protocol Working: AnyObject {
 	var isStartedStream: AsyncStream<Bool> { get }
 }
 
+@MainActor
 open class Worker: Working {
 
 	public final var isStarted: Bool {
@@ -65,10 +84,31 @@ open class Worker: Working {
 
 	private func bind(to interactorScope: InteractorScope) {
 		unbindInteractor()
+		let initialIsInteractorActive = interactorScope.isActive
+		let stream = interactorScope.isActiveStream
 
-		interactorBindingCancellable = Task { [weak self] in
+		// Rx `BehaviorSubject` would immediately replay the current active state
+		// on subscription. Apply the same bootstrap synchronously so `start(_:)`
+		// behaves deterministically when the bound interactor is already active.
+		if initialIsInteractorActive {
+			if isStarted {
+				executeStart(interactorScope)
+			}
+		} else {
+			executeStop()
+		}
 
-			for await isInteractorActive in interactorScope.isActiveStream {
+		interactorBindingCancellable = Task { @MainActor [weak self] in
+			var didObserveInitialValue = false
+
+			for await isInteractorActive in stream {
+				if !didObserveInitialValue {
+					didObserveInitialValue = true
+					if isInteractorActive == initialIsInteractorActive {
+						continue
+					}
+				}
+
 				if isInteractorActive {
 					if self?.isStarted == true {
 						self?.executeStart(interactorScope)
@@ -101,7 +141,7 @@ open class Worker: Working {
 		interactorBindingCancellable = nil
 	}
 
-	deinit {
+	isolated deinit {
 		stop()
 		unbindInteractor()
 		isStartedSubject.finish()
@@ -112,8 +152,13 @@ open class Worker: Working {
 
 public extension Task {
 
+	@MainActor
 	@discardableResult
 	func cancelOnStop(_ worker: Worker) -> Task {
+		// RxSwift replacement mapping:
+		// - `Disposable.disposeOnStop(worker:)` -> `Task.cancelOnStop(worker:)`
+		// - `disposable.insert(...)` -> `workerCancellable.insert(...)`
+		// - `disposable.dispose()` -> `task.cancel()`
 		if let compositeCancellable = worker.workerCancellable {
 			compositeCancellable.insert(self)
 		} else {
@@ -123,10 +168,19 @@ public extension Task {
 
 		return self
 	}
+
+	@MainActor
+	@discardableResult
+	func disposeOnStop(_ worker: Worker) -> Task {
+		// Migration alias so existing RIBs call sites can replace
+		// `disposable.disposeOnStop(...)` with `task.disposeOnStop(...)`.
+		cancelOnStop(worker)
+	}
 }
 
 // MARK: - WeakInteractorScope
 
+@MainActor
 fileprivate class WeakInteractorScope: InteractorScope {
 
 	weak var sourceScope: InteractorScope?

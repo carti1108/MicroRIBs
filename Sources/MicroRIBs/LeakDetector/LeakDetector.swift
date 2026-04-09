@@ -5,24 +5,19 @@
 //  Created by Kiseok on 12/24/25.
 //
 //
-//  Migration Guide (RxSwift -> Swift Concurrency):
-//
-//  1. Observable<LeakDetectionStatus> -> AsyncStream<LeakDetectionStatus>
-//     - 기존 Rx의 BehaviorSubject와 distinctUntilChanged 로직을 대체하기 위해
-//       내부적으로 [UUID: AsyncStream.Continuation] 딕셔너리를 사용하여
-//       상태가 변경될 때마다 모든 구독자에게 값을 전달하는 Multicast 패턴을 구현했습니다.
-//
-//  2. BehaviorRelay<Int> -> Int (Property Observer)
-//     - expectationCount 변수의 didSet 블록에서 상태 변화를 감지하고
-//       subscribers 딕셔너리를 순회하며 변경된 상태를 Broadcast 합니다.
-//
-//  3. LeakDetectionHandleImpl (RxRelay) -> LeakDetectionHandleImpl (Task)
-//     - 취소 상태를 RxRelay로 관리하던 것을, Task.cancel() 호출과
-//       CompletionState 클래스를 이용한 동기화 로직으로 변경했습니다.
-//
-//  4. Executor.execute -> Task return
-//     - 실행 취소를 위해 Executor가 반환하는 Task 객체를 Handle이 보유하도록 변경했습니다.
-//
+// Migration note:
+// RxSwift replacement mapping:
+// - `var status: Observable<LeakDetectionStatus>` -> `var status: AsyncStream<LeakDetectionStatus>`
+// - `BehaviorRelay<Int>(value: 0)` for `expectationCount`
+//   -> `CurrentValueAsyncStream<Int>(0)`
+// - `expectationCount.accept(newValue)` -> `expectationCount.send(newValue)`
+// - `expectationCount.asObservable().map(...).distinctUntilChanged()`
+//   -> `expectationCount.stream.map(...).removeDuplicates().eraseToStream()`
+// - `BehaviorRelay<Bool>(value: false)` inside `LeakDetectionHandleImpl`
+//   -> `CurrentValueAsyncStream<Bool>(false)`
+// - `cancelledRelay.accept(true)` -> `cancelledStream.send(true)`
+// - `Executor.execute(withDelay:) { ... }` still exists, but now returns a
+//   Swift Concurrency `Task<Void, Never>` instead of an Rx-managed resource.
 
 import UIKit
 import AsyncAlgorithms
@@ -41,6 +36,7 @@ public protocol LeakDetectionHandle {
 	func cancel()
 }
 
+@MainActor
 public class LeakDetector {
 
 	public static private(set) var instance = LeakDetector()

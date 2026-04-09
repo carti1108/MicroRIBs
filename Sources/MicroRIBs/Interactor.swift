@@ -5,9 +5,23 @@
 //  Created by Kiseok on 12/20/25.
 //
 
+// Migration note:
+// RxSwift replacement mapping:
+// - `private let isActiveSubject = BehaviorSubject<Bool>(value: false)`
+//   -> `private let isActiveSubject = CurrentValueAsyncStream<Bool>(false)`
+// - `var isActiveStream: Observable<Bool>` -> `var isActiveStream: AsyncStream<Bool>`
+// - `try isActiveSubject.value()` -> `isActiveSubject.value`
+// - `isActiveSubject.onNext(true/false)` -> `isActiveSubject.send(true/false)`
+// - `isActiveSubject.onCompleted()` -> `isActiveSubject.finish()`
+// - `fileprivate var activenessDisposable: CompositeDisposable?`
+//   -> `fileprivate var activenessCancellables: CompositeCancellable?`
+// - Rx `Disposable.disposeOnDeactivate(interactor:)`
+//   -> `Task.cancelOnDeactivate(interactor:)` / `Task.disposeOnDeactivate(interactor:)`
+
 import Foundation
 import AsyncAlgorithms
 
+@MainActor
 public protocol InteractorScope: AnyObject {
 
 	var isActive: Bool { get }
@@ -15,6 +29,7 @@ public protocol InteractorScope: AnyObject {
 	var isActiveStream: AsyncStream<Bool> { get }
 }
 
+@MainActor
 public protocol Interactable: InteractorScope {
 
 	func activate()
@@ -22,6 +37,7 @@ public protocol Interactable: InteractorScope {
 	func deactivate()
 }
 
+@MainActor
 open class Interactor: Interactable {
 
 	public var isActive: Bool {
@@ -62,7 +78,7 @@ open class Interactor: Interactable {
 
 	}
 
-	deinit {
+	isolated deinit {
 		if self.isActive {
 			self.deactivate()
 		}
@@ -72,7 +88,14 @@ open class Interactor: Interactable {
 
 public extension AsyncSequence {
 
+	@MainActor
 	func confineTo(_ interactorScope: InteractorScope) -> AsyncStream<Element> {
+		// RxSwift replacement mapping:
+		// - `Observable.combineLatest(interactorScope.isActiveStream, self)`
+		//   -> `AsyncAlgorithms.combineLatest(interactorScope.isActiveStream, self)`
+		// - `.filter { isActive, value in isActive }` -> same
+		// - `.map { isActive, value in value }` -> same
+		// - resulting `Observable<Element>` -> `AsyncStream<Element>`
 		return combineLatest(interactorScope.isActiveStream, self)
 			.filter { isActive, value in
 				isActive
@@ -87,8 +110,13 @@ public extension AsyncSequence {
 
 public extension Task {
 
+	@MainActor
 	@discardableResult
 	func cancelOnDeactivate(interactor: Interactor) -> Task {
+		// RxSwift replacement mapping:
+		// - `Disposable.disposeOnDeactivate(interactor:)` -> `Task.cancelOnDeactivate(interactor:)`
+		// - `activenessDisposable.insert(disposable)` -> `activenessCancellables.insert(task)`
+		// - `disposable.dispose()` -> `task.cancel()`
 		if let cancellables = interactor.activenessCancellables {
 			cancellables.insert(self)
 		} else {
@@ -98,5 +126,12 @@ public extension Task {
 
 		return self
 	}
-}
 
+	@MainActor
+	@discardableResult
+	func disposeOnDeactivate(interactor: Interactor) -> Task {
+		// Migration alias so existing RIBs call sites can replace
+		// `disposable.disposeOnDeactivate(...)` with `task.disposeOnDeactivate(...)`.
+		cancelOnDeactivate(interactor: interactor)
+	}
+}

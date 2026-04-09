@@ -5,6 +5,11 @@
 //  Created by Kiseok on 12/20/25.
 //
 
+// Migration note:
+// RxSwift replacement mapping:
+// - No Rx type was used here in upstream RIBs.
+// - `uiviewController` is kept as a compatibility alias for migrated RIBs code.
+
 import UIKit
 
 @MainActor
@@ -20,6 +25,10 @@ public extension ViewControllable where Self: UIViewController {
 
 @MainActor
 public extension ViewControllable {
+
+	var uiviewController: UIViewController {
+		uiViewController
+	}
 
 	func present(_ viewControllable: ViewControllable, animated: Bool, completion: (() -> Void)?) {
 		self.uiViewController.present(viewControllable.uiViewController, animated: animated, completion: completion)

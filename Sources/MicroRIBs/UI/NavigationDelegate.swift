@@ -7,6 +7,7 @@
 
 import UIKit
 
+@MainActor
 public final class NavigationDelegate: NSObject, UINavigationControllerDelegate {
 
 	// MARK: - Public Properties
@@ -68,4 +69,3 @@ public final class NavigationDelegate: NSObject, UINavigationControllerDelegate 
 		self.previousDelegate?.navigationController?(navigationController, willShow: viewController, animated: animated)
 	}
 }
-

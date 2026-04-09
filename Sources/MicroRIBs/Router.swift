@@ -5,28 +5,40 @@
 //  Created by Kiseok on 12/20/25.
 //
 
+// Migration note:
+// RxSwift replacement mapping:
+// - `private let lifecycleSubject = PublishSubject<RouterLifecycle>()`
+//   -> `private let lifecycleSubject = PassthroughAsyncSubject<RouterLifecycle>()`
+// - `var lifecycle: Observable<RouterLifecycle>` -> `var lifecycle: AsyncStream<RouterLifecycle>`
+// - `lifecycleSubject.onNext(.didLoad)` -> `lifecycleSubject.send(.didLoad)`
+// - `lifecycleSubject.onCompleted()` -> `lifecycleSubject.finish()`
+// - Rx subscription to `interactable.isActiveStream`
+//   -> retained `Task` iterating `interactable.isActiveStream`
+// - `CompositeDisposable` for router teardown -> `CompositeCancellable`
+
 import Foundation
 
+@MainActor
 public enum RouterLifecycle {
 	case didLoad
 }
 
+@MainActor
 public protocol RouterScope: AnyObject {
 	var lifecycle: AsyncStream<RouterLifecycle>  { get }
 }
 
+@MainActor
 public protocol Routing: RouterScope {
 	var interactable: Interactable { get }
-
 	var children: [Routing] { get }
 
 	func load()
-
 	func attachChild(_ child: Routing)
-
 	func detachChild(_ child: Routing)
 }
 
+@MainActor
 open class Router<InteractorType>: Routing {
 
 	public let interactor: InteractorType
@@ -34,8 +46,6 @@ open class Router<InteractorType>: Routing {
 	public let interactable: Interactable
 
 	public final var children: [Routing] {
-		lock.lock()
-		defer { lock.unlock() }
 		return _children
 	}
 
@@ -47,7 +57,6 @@ open class Router<InteractorType>: Routing {
 
 	private var didLoadFlag: Bool = false
 	private let lifecycleSubject = PassthroughAsyncSubject<RouterLifecycle>()
-	private let lock = NSLock()
 	private var _children: [Routing] = []
 
 	public init(interactor: InteractorType) {
@@ -73,23 +82,18 @@ open class Router<InteractorType>: Routing {
 	open func didLoad() {
 	}
 
-	public func attachChild(_ child: Routing) {
-		lock.lock()
+	public final func attachChild(_ child: Routing) {
 		assert(!(_children.contains { $0 === child }), "Attempt to attach child: \(child), which is already attached to \(self).")
 
 		_children.append(child)
-		lock.unlock()
 
 		child.interactable.activate()
 		child.load()
 	}
 
-	public func detachChild(_ child: Routing) {
+	public final func detachChild(_ child: Routing) {
 		child.interactable.deactivate()
-
-		lock.lock()
 		_children.removeElementByReference(child)
-		lock.unlock()
 	}
 
 
@@ -99,12 +103,29 @@ open class Router<InteractorType>: Routing {
 	}
 
 	private func bindSubtreeActiveState() {
-		let task = Task { [weak self] in
+		let initialIsActive = interactable.isActive
+		let stream = interactable.isActiveStream
 
-			guard let stream = self?.interactable.isActiveStream else { return }
-			
+		// Rx `BehaviorSubject` subscription in upstream RIBs eagerly observes the
+		// current lifecycle state. Bootstrap it synchronously before the task
+		// starts so attach/load semantics stay deterministic.
+		setSubtreeActive(initialIsActive)
+
+		// RxSwift replacement mapping:
+		// - `interactable.isActiveStream.subscribe(onNext:)`
+		//   -> `Task { for await isActive in interactable.isActiveStream { ... } }`
+		let task = Task { @MainActor [weak self] in
+			guard let self = self else { return }
+			var didObserveInitialValue = false
+
 			for await isActive in stream {
-				self?.setSubtreeActive(isActive)
+				if !didObserveInitialValue {
+					didObserveInitialValue = true
+					if isActive == initialIsActive {
+						continue
+					}
+				}
+				self.setSubtreeActive(isActive)
 			}
 		}
 
@@ -112,14 +133,12 @@ open class Router<InteractorType>: Routing {
 	}
 
 	private func setSubtreeActive(_ active: Bool) {
-		if active {
-			iterateSubtree(self) { router in
+		iterateSubtree(self) { router in
+			if active {
 				if !router.interactable.isActive {
 					router.interactable.activate()
 				}
-			}
-		} else {
-			iterateSubtree(self) { router in
+			} else {
 				if router.interactable.isActive {
 					router.interactable.deactivate()
 				}
@@ -135,27 +154,23 @@ open class Router<InteractorType>: Routing {
 	}
 
 	private func detachAllChildren() {
-		lock.lock()
 		let childrenToDetach = _children
-		lock.unlock()
 
 		for child in childrenToDetach {
 			detachChild(child)
 		}
 	}
 
-	deinit {
-		interactable.deactivate()
+	isolated deinit {
+		self.interactable.deactivate()
 
 		if !children.isEmpty {
 			detachAllChildren()
 		}
 
 		lifecycleSubject.finish()
-
 		deinitCancellables.cancel()
 
 		LeakDetector.instance.expectDeallocate(object: interactable)
 	}
 }
-
