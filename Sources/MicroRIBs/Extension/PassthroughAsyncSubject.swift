@@ -52,7 +52,7 @@ public final class PassthroughAsyncSubject<Value: Sendable>: @unchecked Sendable
 			return
 		}
 
-		let currentContinuations = self.continuations.values
+		let currentContinuations = Array(self.continuations.values)
 		self.lock.unlock()
 
 		for continuation in currentContinuations {
@@ -67,7 +67,7 @@ public final class PassthroughAsyncSubject<Value: Sendable>: @unchecked Sendable
 			return
 		}
 		self.finished = true
-		let currentContinuations = self.continuations.values
+		let currentContinuations = Array(self.continuations.values)
 		self.continuations.removeAll()
 		self.lock.unlock()
 

@@ -29,9 +29,11 @@ public final class AnyCancelTaskBag {
 
 	private func cancel() {
 		self.lock.lock()
-		self.tasks.forEach { $0.cancel() }
+		let currentTasks = self.tasks
 		self.tasks.removeAll()
 		self.lock.unlock()
+
+		currentTasks.forEach { $0.cancel() }
 	}
 
 	deinit {
