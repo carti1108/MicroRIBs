@@ -5,16 +5,17 @@
 //  Created by Kiseok on 12/20/25.
 //
 
-// Migration note:
 // RxSwift replacement mapping:
 // - No Rx type was used here in upstream RIBs.
 // - `uiviewController` is kept as a compatibility alias for migrated RIBs code.
 
 import UIKit
 
+/// Basic interface between a `Router` and the UIKit `UIViewController`.
 @MainActor
 public protocol ViewControllable: AnyObject {
 
+	/// The actual `UIViewController` instance backing this `ViewControllable`.
 	var uiViewController: UIViewController { get }
 }
 
@@ -26,6 +27,7 @@ public extension ViewControllable where Self: UIViewController {
 @MainActor
 public extension ViewControllable {
 
+	/// A compatibility alias for `uiViewController` to support existing RIBs code.
 	var uiviewController: UIViewController {
 		uiViewController
 	}
@@ -70,6 +72,7 @@ public extension ViewControllable {
 		}
 	}
 
+	/// Returns the top-most `ViewControllable` in the presented view controller hierarchy.
 	var topViewControllable: ViewControllable {
 		var top: ViewControllable = self
 

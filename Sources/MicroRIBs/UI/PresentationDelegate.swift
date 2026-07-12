@@ -7,6 +7,7 @@
 
 import UIKit
 
+/// A delegate that handles presentation lifecycle events for a `UIPresentationController`.
 @MainActor
 public final class PresentationDelegate: NSObject, UIAdaptivePresentationControllerDelegate {
 
@@ -18,6 +19,11 @@ public final class PresentationDelegate: NSObject, UIAdaptivePresentationControl
 	
 	// MARK: - Initialization
 
+	/// Initializer.
+	///
+	/// - Parameters:
+	///   - onDismiss: The closure to execute when the presentation is dismissed.
+	///   - presentationController: The presentation controller to monitor.
 	public init(
 		onDismiss: @escaping () -> Void,
 		presentationController: UIPresentationController

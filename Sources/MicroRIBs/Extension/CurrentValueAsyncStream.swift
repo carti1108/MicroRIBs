@@ -5,7 +5,6 @@
 //  Created by Kiseok on 1/26/26.
 //
 
-// Migration note:
 // RxSwift replacement mapping:
 // - `BehaviorSubject<Element>(value: initialValue)` -> `CurrentValueAsyncStream<Element>(initialValue)`
 // - `BehaviorRelay<Element>(value: initialValue)` -> `CurrentValueAsyncStream<Element>(initialValue)`
@@ -16,22 +15,30 @@
 
 import Foundation
 
+/// A thread-safe wrapper around `AsyncStream` that holds the latest value.
+///
+/// This serves as a replacement for RxSwift's `BehaviorSubject` or `BehaviorRelay`.
 public final class CurrentValueAsyncStream<Value: Sendable>: @unchecked Sendable {
 	private let lock = NSLock()
 	private var _value: Value
 	private var continuations: [UUID: AsyncStream<Value>.Continuation] = [:]
 	private var finished = false
 
+	/// Initializer.
+	///
+	/// - Parameter initialValue: The initial value of the stream.
 	public init(_ initialValue: Value) {
 		self._value = initialValue
 	}
 
+	/// The current value held by the stream.
 	public var value: Value {
 		self.lock.lock()
 		defer { self.lock.unlock() }
 		return self._value
 	}
 
+	/// The underlying `AsyncStream` that emits the current value and subsequent updates.
 	public var stream: AsyncStream<Value> {
 		AsyncStream(bufferingPolicy: .bufferingNewest(1)) { continuation in
 			let id = UUID()
@@ -57,6 +64,9 @@ public final class CurrentValueAsyncStream<Value: Sendable>: @unchecked Sendable
 		}
 	}
 
+	/// Sends a new value to the stream.
+	///
+	/// - Parameter newValue: The value to send.
 	public func send(_ newValue: Value) {
 		self.lock.lock()
 		guard !finished else {
@@ -70,6 +80,7 @@ public final class CurrentValueAsyncStream<Value: Sendable>: @unchecked Sendable
 		currentContinuations.forEach { $0.yield(newValue) }
 	}
 
+	/// Finishes the stream, preventing further values from being sent.
 	public func finish() {
 		self.lock.lock()
 		guard !finished else {

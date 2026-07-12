@@ -7,17 +7,23 @@
 
 import UIKit
 
+/// A `ViewControllable` wrapper around `UINavigationController`.
 @MainActor
 public final class NavigationControllerable: ViewControllable {
 
 	// MARK: - Public Properties
 
+	/// The underlying `UIViewController` (which is the `UINavigationController`).
 	public var uiViewController: UIViewController { self.navigationController }
 
+	/// The wrapped `UINavigationController`.
 	public let navigationController: UINavigationController
 
 	// MARK: - Initialization
 
+	/// Initializer.
+	///
+	/// - Parameter root: The root `ViewControllable` for the navigation controller.
 	@MainActor
 	public init(root: ViewControllable) {
 		let navigation = UINavigationController(rootViewController: root.uiViewController)

@@ -5,7 +5,6 @@
 //  Created by Kiseok on 12/20/25.
 //
 
-// Migration note:
 // RxSwift replacement mapping:
 // - `private let isActiveSubject = BehaviorSubject<Bool>(value: false)`
 //   -> `private let isActiveSubject = CurrentValueAsyncStream<Bool>(false)`
@@ -21,29 +20,41 @@
 import Foundation
 import AsyncAlgorithms
 
+/// The scope of an `Interactor`, defining its active state and stream.
 @MainActor
 public protocol InteractorScope: AnyObject {
 
+	/// Indicates if the interactor is currently active.
 	var isActive: Bool { get }
 
+	/// A stream that emits a boolean value indicating whether the interactor is active.
 	var isActiveStream: AsyncStream<Bool> { get }
 }
 
+/// The base protocol for all interactors.
 @MainActor
 public protocol Interactable: InteractorScope {
 
+	/// Activates this interactor.
 	func activate()
 
+	/// Deactivates this interactor.
 	func deactivate()
 }
 
+/// An `Interactor` defines a unit of business logic that corresponds to a router unit.
+///
+/// Interactors have a lifecycle dictated by the router that owns it. They should perform
+/// business logic and state management only when they're active.
 @MainActor
 open class Interactor: Interactable {
 
+	/// Indicates if the interactor is currently active.
 	public var isActive: Bool {
 		return isActiveSubject.value
 	}
 
+	/// A stream that emits a boolean value indicating whether the interactor is active.
 	public var isActiveStream: AsyncStream<Bool> {
 		return isActiveSubject.stream
 	}
@@ -51,8 +62,13 @@ open class Interactor: Interactable {
 	private let isActiveSubject = CurrentValueAsyncStream<Bool>(false)
 	fileprivate var activenessCancellables: CompositeCancellable?
 
+	/// Initializer.
 	public init() {}
 
+	/// Activates this interactor.
+	///
+	/// - Note: This method is internally used by the framework. Application code should never
+	/// invoke this method explicitly.
 	public final func activate() {
 		guard !isActive else { return }
 		activenessCancellables = CompositeCancellable()
@@ -60,10 +76,18 @@ open class Interactor: Interactable {
 		didBecomeActive()
 	}
 
+	/// Called when the interactor has become active.
+	///
+	/// Subclasses should override this method to perform initialization and start tasks
+	/// that should only execute while the interactor is active.
 	open func didBecomeActive() {
 
 	}
 
+	/// Deactivates this interactor.
+	///
+	/// - Note: This method is internally used by the framework. Application code should never
+	/// invoke this method explicitly.
 	public final func deactivate() {
 		guard isActive else { return }
 		willResignActive()
@@ -74,6 +98,10 @@ open class Interactor: Interactable {
 		isActiveSubject.send(false)
 	}
 
+	/// Called when the interactor will resign the active state.
+	///
+	/// Subclasses should override this method to perform cleanup. All tasks bound to the
+	/// interactor's lifecycle (`cancelOnDeactivate(interactor:)`) are automatically cancelled.
 	open func willResignActive() {
 
 	}
@@ -86,8 +114,14 @@ open class Interactor: Interactable {
 	}
 }
 
-public extension AsyncSequence {
+public extension AsyncSequence where Self: Sendable, Element: Sendable {
 
+	/// Confines the emission of elements from the sequence to the active lifespan of the given `InteractorScope`.
+	///
+	/// Elements emitted by the source sequence will only be forwarded if the interactor is active.
+	///
+	/// - Parameter interactorScope: The interactor scope to confine to.
+	/// - Returns: A confined `AsyncStream`.
 	@MainActor
 	func confineTo(_ interactorScope: InteractorScope) -> AsyncStream<Element> {
 		// RxSwift replacement mapping:
@@ -110,6 +144,10 @@ public extension AsyncSequence {
 
 public extension Task {
 
+	/// Cancels the task when the given interactor is deactivated.
+	///
+	/// - Parameter interactor: The interactor to scope the task to.
+	/// - Returns: The task itself.
 	@MainActor
 	@discardableResult
 	func cancelOnDeactivate(interactor: Interactor) -> Task {
@@ -127,6 +165,10 @@ public extension Task {
 		return self
 	}
 
+	/// Disposes the task when the given interactor is deactivated. (Alias for `cancelOnDeactivate`)
+	///
+	/// - Parameter interactor: The interactor to scope the task to.
+	/// - Returns: The task itself.
 	@MainActor
 	@discardableResult
 	func disposeOnDeactivate(interactor: Interactor) -> Task {

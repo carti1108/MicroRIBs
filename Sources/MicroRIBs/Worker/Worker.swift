@@ -5,7 +5,6 @@
 //  Created by Kiseok on 1/6/26.
 //
 
-// Migration note:
 // RxSwift replacement mapping:
 // - `private let isStartedSubject = BehaviorSubject<Bool>(value: false)`
 //   -> `private let isStartedSubject = CurrentValueAsyncStream<Bool>(false)`
@@ -24,31 +23,48 @@
 
 import Foundation
 
+/// The base protocol for all workers.
 @MainActor
 public protocol Working: AnyObject {
 
+	/// Starts the worker.
+	///
+	/// - Parameter interactorScope: The interactor scope to bind the worker to.
 	func start(_ interactorScope: InteractorScope)
 
+	/// Stops the worker.
 	func stop()
 
+	/// Indicates if the worker is currently started.
 	var isStarted: Bool { get }
 
+	/// A stream that emits a boolean value indicating whether the worker is started.
 	var isStartedStream: AsyncStream<Bool> { get }
 }
 
+/// The base class for all workers.
+///
+/// Workers are used to perform tasks independently of the interactor's lifecycle,
+/// but they can be bound to an interactor's lifecycle using the `start` method.
 @MainActor
 open class Worker: Working {
 
+	/// Indicates if the worker is currently started.
 	public final var isStarted: Bool {
 		return isStartedSubject.value
 	}
 
+	/// A stream that emits a boolean value indicating whether the worker is started.
 	public final var isStartedStream: AsyncStream<Bool> {
 		return isStartedSubject.stream
 	}
 
+	/// Initializer.
 	public init() {}
 
+	/// Starts the worker.
+	///
+	/// - Parameter interactorScope: The interactor scope to bind the worker to.
 	public final func start(_ interactorScope: InteractorScope) {
 		guard !isStarted else {
 			return
@@ -61,10 +77,14 @@ open class Worker: Working {
 		bind(to: weakInteractorScope)
 	}
 
+	/// Called when the worker has started.
+	///
+	/// Subclasses should override this method to perform initialization and start tasks.
 	open func didStart(_ interactorScope: InteractorScope) {
 
 	}
 
+	/// Stops the worker.
 	public final func stop() {
 		guard isStarted else {
 			return
@@ -74,6 +94,9 @@ open class Worker: Working {
 		executeStop()
 	}
 
+	/// Called when the worker has stopped.
+	///
+	/// Subclasses should override this method to perform cleanup.
 	open func didStop() {
 
 	}
@@ -152,6 +175,10 @@ open class Worker: Working {
 
 public extension Task {
 
+	/// Cancels the task when the given worker is stopped.
+	///
+	/// - Parameter worker: The worker to scope the task to.
+	/// - Returns: The task itself.
 	@MainActor
 	@discardableResult
 	func cancelOnStop(_ worker: Worker) -> Task {
@@ -169,6 +196,10 @@ public extension Task {
 		return self
 	}
 
+	/// Disposes the task when the given worker is stopped. (Alias for `cancelOnStop`)
+	///
+	/// - Parameter worker: The worker to scope the task to.
+	/// - Returns: The task itself.
 	@MainActor
 	@discardableResult
 	func disposeOnStop(_ worker: Worker) -> Task {

@@ -5,7 +5,6 @@
 //  Created by Kiseok on 12/24/25.
 //
 //
-// Migration note:
 // RxSwift replacement mapping:
 // - `var status: Observable<LeakDetectionStatus>` -> `var status: AsyncStream<LeakDetectionStatus>`
 // - `BehaviorRelay<Int>(value: 0)` for `expectationCount`
@@ -22,29 +21,44 @@
 import UIKit
 import AsyncAlgorithms
 
-public enum LeakDetectionStatus {
+/// The status of leak detection.
+public enum LeakDetectionStatus: Sendable {
+	/// Leak detection is currently in progress.
 	case InProgress
+	/// Leak detection has completed.
 	case DidComplete
 }
 
+/// Default timeout durations for leak detection expectations.
 public struct LeakDefaultExpectationTime {
+	/// The default time to wait for object deallocation (1.0 second).
 	public static let deallocation = 1.0
+	/// The default time to wait for a view controller to disappear (5.0 seconds).
 	public static let viewDisappear = 5.0
 }
 
+/// A handle that can be used to cancel a leak detection expectation.
+@MainActor
 public protocol LeakDetectionHandle {
+	/// Cancels the leak detection expectation.
 	func cancel()
 }
 
+/// An explicitly-invoked leak detector that checks for memory leaks.
+///
+/// Under the hood, this uses a combination of weak references and delayed
+/// execution on the MainActor.
 @MainActor
 public class LeakDetector {
 
+	/// The singleton instance of the leak detector.
 	public static private(set) var instance = LeakDetector()
 
 	static func setInstance(_ newInstance: LeakDetector) {
 		instance = newInstance
 	}
 
+	/// A stream that emits the current status of the leak detector.
 	public var status: AsyncStream<LeakDetectionStatus> {
 		return expectationCount.stream
 			.map { count in
@@ -54,16 +68,20 @@ public class LeakDetector {
 			.eraseToStream()
 	}
 
+	/// Sets up an expectation for the given object to be deallocated within the given time.
+	///
+	/// - Parameters:
+	///   - object: The object to track for deallocation.
+	///   - time: The time interval to wait before checking for a leak.
+	/// - Returns: A handle that can be used to cancel the expectation.
 	@discardableResult
 	public func expectDeallocate(object: AnyObject, inTime time: TimeInterval = LeakDefaultExpectationTime.deallocation) -> LeakDetectionHandle {
 		self.increaseExpectationCount()
 
 		let objectDescription = String(describing: object)
 		let objectId = String(ObjectIdentifier(object).hashValue) as NSString
-		
-		lock.lock()
+
 		trackingObjects.setObject(object, forKey: objectId)
-		lock.unlock()
 
 		let handle = LeakDetectionHandleImpl { [weak self] in
 			self?.decreaseExpectationCount()
@@ -73,10 +91,8 @@ public class LeakDetector {
 			guard let self = self else { return }
 
 			if !handle.cancelled {
-				self.lock.lock()
 				let didDeallocate = (self.trackingObjects.object(forKey: objectId) == nil)
 				let trackingObjectsDescription = String(describing: self.trackingObjects)
-				self.lock.unlock()
 				
 				let message = "<\(objectDescription): \(objectId)> has leaked. Objects are expected to be deallocated at this time: \(trackingObjectsDescription)"
 
@@ -98,6 +114,12 @@ public class LeakDetector {
 		return handle
 	}
 
+	/// Sets up an expectation for the given view controller to disappear within the given time.
+	///
+	/// - Parameters:
+	///   - viewController: The view controller to track for disappearance.
+	///   - time: The time interval to wait before checking.
+	/// - Returns: A handle that can be used to cancel the expectation.
 	@discardableResult
 	public func expectViewControllerDisappear(viewController: UIViewController, inTime time: TimeInterval = LeakDefaultExpectationTime.viewDisappear) -> LeakDetectionHandle {
 		self.increaseExpectationCount()
@@ -111,10 +133,8 @@ public class LeakDetector {
 
 			if let viewController = viewController, !handle.cancelled {
 				let viewDidDisappear = (!viewController.isViewLoaded || viewController.view.window == nil)
-				
-				self.lock.lock()
+
 				let trackingObjectsDescription = String(describing: self.trackingObjects)
-				self.lock.unlock()
 				
 				let message = "\(viewController) appearance has leaked. Either its parent router who does not own a view controller was detached, but failed to dismiss the leaked view controller; or the view controller is reused and re-added to window, yet the router is not re-attached but re-created. Objects are expected to be deallocated at this time: \(trackingObjectsDescription)"
 
@@ -140,15 +160,12 @@ public class LeakDetector {
 
 #if DEBUG
 	func reset() {
-		lock.lock()
 		trackingObjects.removeAllObjects()
-		lock.unlock()
 		expectationCount.send(0)
 	}
 #endif
 
 	private let expectationCount = CurrentValueAsyncStream<Int>(0)
-	private let lock = NSLock()
 	private let trackingObjects = NSMapTable<AnyObject, AnyObject>.strongToWeakObjects()
 
 	private func increaseExpectationCount() {
@@ -168,6 +185,7 @@ public class LeakDetector {
 	}()
 }
 
+@MainActor
 private class LeakDetectionHandleImpl: LeakDetectionHandle {
 	var cancelled: Bool {
 		return cancelledStream.value

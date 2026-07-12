@@ -5,7 +5,6 @@
 //  Created by Kiseok on 12/23/25.
 //
 
-// Migration note:
 // RxSwift replacement mapping:
 // - Rx subscription to `interactable.isActiveStream`
 //   -> retained `Task` iterating `interactable.isActiveStream`
@@ -16,20 +15,30 @@
 
 import Foundation
 
+/// The base protocol for all routers that own their own view.
 @MainActor
 public protocol ViewableRouting: Routing {
+	/// The `ViewControllable` associated with this router.
 	var viewControllable: ViewControllable { get }
 }
 
+/// The base class of all routers that own their own view.
 @MainActor
 open class ViewableRouter<InteractorType, ViewControllerType>: Router<InteractorType>, ViewableRouting {
 
+	/// The corresponding `ViewController` owned by this router.
 	public let viewController: ViewControllerType
 
+	/// The `ViewControllable` associated with this router.
 	public let viewControllable: ViewControllable
 
 	private var viewControllerDisappearExpectation: LeakDetectionHandle?
 
+	/// Initializer.
+	///
+	/// - Parameters:
+	///   - interactor: The corresponding `Interactor` of this `Router`.
+	///   - viewController: The corresponding `ViewController` of this `Router`.
 	public init(interactor: InteractorType, viewController: ViewControllerType) {
 		self.viewController = viewController
 		guard let viewControllable = viewController as? ViewControllable else {

@@ -7,7 +7,6 @@
 
 import Foundation
 
-// Migration note:
 // RxSwift replacement mapping:
 // - `Workflow.onStep { ... -> Observable<(NextActionableItem, Value)> }`
 //   -> `Workflow.onStep { ... async throws -> (NextActionableItem, Value) }`
@@ -20,20 +19,33 @@ import Foundation
 // - `flatMapLatest + filter + take(1) + share()` step progression
 //   -> sequential `async` chaining plus "wait until Interactable is active"
 
+/// The base class for all workflows.
+///
+/// Workflows are used to execute a sequence of actionable items.
 @MainActor
 open class Workflow<ActionableItemType> {
 
+	/// Called when the workflow has completed.
 	open func didComplete() {
 	}
 
+	/// Called when the workflow has been forked.
 	open func didFork() {
 	}
 
+	/// Called when an error occurs during the workflow execution.
+	///
+	/// - Parameter error: The error that occurred.
 	open func didReceiveError(_ error: Error) {
 	}
 
+	/// Initializer.
 	public init() {}
 
+	/// Adds a step to the workflow.
+	///
+	/// - Parameter onStep: The closure to execute for this step.
+	/// - Returns: A `Step` representing the added step.
 	public final func onStep<NextActionableItemType, NextValueType>(
 		_ onStep: @escaping @MainActor (ActionableItemType) async throws -> (NextActionableItemType, NextValueType)
 	) -> Step<ActionableItemType, NextActionableItemType, NextValueType> {
@@ -42,6 +54,10 @@ open class Workflow<ActionableItemType> {
 		}
 	}
 
+	/// Subscribes to the workflow, triggering its execution.
+	///
+	/// - Parameter actionableItem: The initial actionable item to start the workflow with.
+	/// - Returns: A task representing the workflow's execution.
 	@discardableResult
 	public final func subscribe(_ actionableItem: ActionableItemType) -> Task<Void, Never> {
 		guard !commitFactories.isEmpty else {
@@ -87,6 +103,7 @@ open class Workflow<ActionableItemType> {
 	private var commitFactories: [@MainActor (ActionableItemType) -> Task<Void, Never>] = []
 }
 
+/// A step in a workflow.
 @MainActor
 open class Step<WorkflowActionableItemType, ActionableItemType, ValueType> {
 
@@ -101,6 +118,10 @@ open class Step<WorkflowActionableItemType, ActionableItemType, ValueType> {
 		self.operation = operation
 	}
 
+	/// Adds a subsequent step to the workflow.
+	///
+	/// - Parameter onStep: The closure to execute for this step.
+	/// - Returns: A new `Step` representing the added step.
 	public final func onStep<NextActionableItemType, NextValueType>(
 		_ onStep: @escaping @MainActor (ActionableItemType, ValueType) async throws -> (NextActionableItemType, NextValueType)
 	) -> Step<WorkflowActionableItemType, NextActionableItemType, NextValueType> {
@@ -111,6 +132,10 @@ open class Step<WorkflowActionableItemType, ActionableItemType, ValueType> {
 		}
 	}
 
+	/// Adds an error handler to the workflow.
+	///
+	/// - Parameter onError: The closure to execute if an error occurs.
+	/// - Returns: This step.
 	public final func onError(
 		_ onError: @escaping @MainActor (Error) -> Void
 	) -> Step<WorkflowActionableItemType, ActionableItemType, ValueType> {
@@ -126,10 +151,15 @@ open class Step<WorkflowActionableItemType, ActionableItemType, ValueType> {
 		return self
 	}
 
+	/// Commits the workflow, preparing it for subscription.
+	///
+	/// - Returns: The committed workflow.
 	@discardableResult
 	public final func commit() -> Workflow<WorkflowActionableItemType> {
-		workflow.appendCommit { [workflow, operation] rootActionableItem in
+		workflow.appendCommit { [weak workflow, operation] rootActionableItem in
 			Task { @MainActor in
+				guard let workflow else { return }
+				
 				do {
 					_ = try await operation(rootActionableItem)
 					workflow.didCompleteIfNotYet()
@@ -145,6 +175,9 @@ open class Step<WorkflowActionableItemType, ActionableItemType, ValueType> {
 		return workflow
 	}
 
+	/// Forks the workflow.
+	///
+	/// - Returns: A new step representing the fork.
 	public final func fork() -> Step<WorkflowActionableItemType, ActionableItemType, ValueType> {
 		workflow.didFork()
 		return Step(workflow: workflow, operation: operation)
@@ -167,6 +200,9 @@ open class Step<WorkflowActionableItemType, ActionableItemType, ValueType> {
 
 public extension Task {
 
+	/// Disposes the task when the given workflow completes.
+	///
+	/// - Parameter workflow: The workflow to scope the task to.
 	@MainActor
 	func disposeWith<ActionableItemType>(workflow: Workflow<ActionableItemType>) {
 		store(in: workflow.cancellables)
@@ -175,6 +211,9 @@ public extension Task {
 
 public extension AnyCancellableTask {
 
+	/// Disposes the task when the given workflow completes.
+	///
+	/// - Parameter workflow: The workflow to scope the task to.
 	@MainActor
 	func disposeWith<ActionableItemType>(workflow: Workflow<ActionableItemType>) {
 		workflow.cancellables.insert(self)
