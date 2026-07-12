@@ -5,44 +5,34 @@
 //  Created by Kiseok on 12/20/25.
 //
 
-// Migration note:
 // RxSwift replacement mapping:
 // - No Rx type was used here in upstream RIBs.
-// - This file keeps the original `NSRecursiveLock` + `[String: Any]` cache.
-// - The Swift Concurrency migration added `@MainActor` to make the old
-//   main-thread-only convention explicit.
+// - The `shared` method was removed in favor of the new `@Shared` property wrapper.
 
 import Foundation
 
+/// The base class for all components.
+///
+/// Components provide dependency injection to the RIBs. Subclasses should
+/// declare dependencies via `@Shared` property wrappers to ensure they are created exactly once.
 @MainActor
 open class Component<DependencyType>: Dependency {
 
+	/// The dependency of this component.
 	public let dependency: DependencyType
 
-	private let lock = NSRecursiveLock()
-	private var sharedInstances = [String: Any]()
-
+	/// Initializer.
+	///
+	/// - Parameter dependency: The dependency of this component.
 	public init(dependency: DependencyType) {
 		self.dependency = dependency
 	}
-
-	public final func shared<T>(__function: String = #function, _ factory: () -> T) -> T {
-		self.lock.lock()
-		defer { lock.unlock() }
-
-		if let instance = (sharedInstances[__function] as? T?) ?? nil {
-			return instance
-		}
-
-		let instance = factory()
-		sharedInstances[__function] = instance
-
-		return instance
-	}
 }
 
+/// The base class for an empty component.
 @MainActor
 open class EmptyComponent: EmptyDependency {
 
+	/// Initializer.
 	public init() {}
 }
