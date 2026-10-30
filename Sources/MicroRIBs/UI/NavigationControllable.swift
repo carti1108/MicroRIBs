@@ -5,6 +5,7 @@
 //  Created by Kiseok on 1/2/26.
 //
 
+#if canImport(UIKit)
 import UIKit
 
 /// A `ViewControllable` wrapper around `UINavigationController`.
@@ -34,3 +35,4 @@ public final class NavigationControllerable: ViewControllable {
 		self.navigationController = navigation
 	}
 }
+#endif

@@ -5,6 +5,7 @@
 //  Created by Kiseok on 1/30/25.
 //
 
+#if canImport(UIKit)
 import UIKit
 
 /// A delegate that handles navigation lifecycle events for a `UINavigationController`.
@@ -77,3 +78,4 @@ public final class NavigationDelegate: NSObject, UINavigationControllerDelegate 
 		self.previousDelegate?.navigationController?(navigationController, willShow: viewController, animated: animated)
 	}
 }
+#endif

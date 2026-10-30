@@ -82,15 +82,30 @@ open class ViewableRouter<InteractorType, ViewControllerType>: Router<Interactor
 		viewControllerDisappearExpectation = nil
 
 		if !isActive {
-			let viewController = viewControllable.uiViewController
-			viewControllerDisappearExpectation = LeakDetector.instance.expectViewControllerDisappear(viewController: viewController)
+			#if canImport(UIKit)
+			let controller = viewControllable.uiViewController
+			viewControllerDisappearExpectation = LeakDetector.instance.expectViewControllerDisappear(viewController: controller)
+			#elseif canImport(AppKit)
+			let controller = viewControllable.nsViewController
+			viewControllerDisappearExpectation = LeakDetector.instance.expectViewControllerDisappear(viewController: controller)
+			#endif
 		}
 	}
 
 	isolated deinit {
 		LeakDetector.instance.expectDeallocate(
-			object: viewControllable.uiViewController,
+			object: trackedViewController,
 			inTime: LeakDefaultExpectationTime.viewDisappear
 		)
+	}
+
+	private var trackedViewController: AnyObject {
+		#if canImport(UIKit)
+		viewControllable.uiViewController
+		#elseif canImport(AppKit)
+		viewControllable.nsViewController
+		#else
+		viewControllable
+		#endif
 	}
 }

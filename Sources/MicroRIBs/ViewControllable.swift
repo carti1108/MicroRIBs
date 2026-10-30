@@ -9,6 +9,7 @@
 // - No Rx type was used here in upstream RIBs.
 // - `uiviewController` is kept as a compatibility alias for migrated RIBs code.
 
+#if canImport(UIKit)
 import UIKit
 
 /// Basic interface between a `Router` and the UIKit `UIViewController`.
@@ -83,3 +84,17 @@ public extension ViewControllable {
 		return top
 	}
 }
+#elseif canImport(AppKit)
+import AppKit
+
+/// Basic interface between a `Router` and the AppKit `NSViewController`.
+@MainActor
+public protocol ViewControllable: AnyObject {
+	/// The actual `NSViewController` instance backing this `ViewControllable`.
+	var nsViewController: NSViewController { get }
+}
+
+public extension ViewControllable where Self: NSViewController {
+	var nsViewController: NSViewController { self }
+}
+#endif

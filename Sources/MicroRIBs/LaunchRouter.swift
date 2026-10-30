@@ -9,6 +9,7 @@
 // - No Rx type was used here in upstream RIBs.
 // - The Swift Concurrency migration here is `@MainActor` isolation only.
 
+#if canImport(UIKit)
 import UIKit
 
 /// The base protocol for the root router of an application.
@@ -46,3 +47,27 @@ open class LaunchRouter<InteractorType, ViewControllerType>: ViewableRouter<Inte
 		load()
 	}
 }
+#elseif canImport(AppKit)
+import AppKit
+
+/// The base protocol for the root router of a macOS application.
+@MainActor
+public protocol LaunchRouting: ViewableRouting {
+	func launch(from window: NSWindow)
+}
+
+/// The base class of the root router of a macOS application.
+@MainActor
+open class LaunchRouter<InteractorType, ViewControllerType>: ViewableRouter<InteractorType, ViewControllerType>, LaunchRouting {
+	public override init(interactor: InteractorType, viewController: ViewControllerType) {
+		super.init(interactor: interactor, viewController: viewController)
+	}
+
+	public final func launch(from window: NSWindow) {
+		window.contentViewController = viewControllable.nsViewController
+		window.makeKeyAndOrderFront(nil)
+		interactable.activate()
+		load()
+	}
+}
+#endif

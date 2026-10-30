@@ -6,6 +6,7 @@
 //
 
 import Testing
+#if canImport(UIKit)
 import UIKit
 @testable import MicroRIBs
 
@@ -88,3 +89,4 @@ struct LaunchRouterTests {
 		#expect(window.isKeyWindow)
 	}
 }
+#endif

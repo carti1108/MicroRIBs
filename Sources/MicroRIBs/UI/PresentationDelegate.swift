@@ -5,6 +5,7 @@
 //  Created by Kiseok on 1/30/25.
 //
 
+#if canImport(UIKit)
 import UIKit
 
 /// A delegate that handles presentation lifecycle events for a `UIPresentationController`.
@@ -40,4 +41,5 @@ public final class PresentationDelegate: NSObject, UIAdaptivePresentationControl
 		self.onDismiss()
 	}
 }
+#endif
 

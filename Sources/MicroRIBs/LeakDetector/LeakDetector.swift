@@ -18,7 +18,11 @@
 // - `Executor.execute(withDelay:) { ... }` still exists, but now returns a
 //   Swift Concurrency `Task<Void, Never>` instead of an Rx-managed resource.
 
+#if canImport(UIKit)
 import UIKit
+#elseif canImport(AppKit)
+import AppKit
+#endif
 import AsyncAlgorithms
 
 /// The status of leak detection.
@@ -120,6 +124,7 @@ public class LeakDetector {
 	///   - viewController: The view controller to track for disappearance.
 	///   - time: The time interval to wait before checking.
 	/// - Returns: A handle that can be used to cancel the expectation.
+	#if canImport(UIKit)
 	@discardableResult
 	public func expectViewControllerDisappear(viewController: UIViewController, inTime time: TimeInterval = LeakDefaultExpectationTime.viewDisappear) -> LeakDetectionHandle {
 		self.increaseExpectationCount()
@@ -155,6 +160,40 @@ public class LeakDetector {
 
 		return handle
 	}
+	#elseif canImport(AppKit)
+	@discardableResult
+	public func expectViewControllerDisappear(viewController: NSViewController, inTime time: TimeInterval = LeakDefaultExpectationTime.viewDisappear) -> LeakDetectionHandle {
+		self.increaseExpectationCount()
+
+		let handle = LeakDetectionHandleImpl { [weak self] in
+			self?.decreaseExpectationCount()
+		}
+
+		_ = Executor.execute(withDelay: time) { [weak self, weak viewController] in
+			guard let self = self else { return }
+
+			if let viewController = viewController, !handle.cancelled {
+				let viewDidDisappear = (!viewController.isViewLoaded || viewController.view.window == nil)
+				let message = "\(viewController) is expected to be removed from its window by now."
+
+				if self.disableLeakDetector {
+					if !viewDidDisappear {
+						print("Leak detection is disabled. This should only be used for debugging purposes.")
+						print(message)
+					}
+				} else {
+					assert(viewDidDisappear, message)
+				}
+			}
+
+			if !handle.cancelled {
+				self.decreaseExpectationCount()
+			}
+		}
+
+		return handle
+	}
+	#endif
 
 	static var disableLeakDetectorOverride: Bool = false
 

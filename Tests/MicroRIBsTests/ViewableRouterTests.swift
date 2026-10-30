@@ -6,6 +6,7 @@
 //
 
 import Testing
+#if canImport(UIKit)
 import UIKit
 @testable import MicroRIBs
 
@@ -166,3 +167,4 @@ struct ViewableRouterTests {
 		#expect(viewController.uiviewController === viewController)
 	}
 }
+#endif
