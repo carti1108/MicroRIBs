@@ -10,6 +10,7 @@ import Foundation
 @testable import MicroRIBs
 
 @Suite("CurrentValueAsyncStream 테스트")
+@MainActor
 struct CurrentValueAsyncStreamTests {
 	
 	@Test

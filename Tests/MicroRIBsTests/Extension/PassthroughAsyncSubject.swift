@@ -10,6 +10,7 @@ import Foundation
 @testable import MicroRIBs
 
 @Suite("PassthroughAsyncSubject 테스트")
+@MainActor
 struct PassthroughAsyncSubjectTests {
 	
 	@Test

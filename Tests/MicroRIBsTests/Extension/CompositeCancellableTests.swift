@@ -10,6 +10,7 @@ import Foundation
 @testable import MicroRIBs
 
 @Suite("CompositeCancellable 테스트")
+@MainActor
 struct CompositeCancellableTests {
 	
 	final class MockCancellable: AnyCancellableTask, @unchecked Sendable {
