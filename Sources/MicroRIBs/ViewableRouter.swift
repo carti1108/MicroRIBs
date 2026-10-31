@@ -92,11 +92,13 @@ open class ViewableRouter<InteractorType, ViewControllerType>: Router<Interactor
 		}
 	}
 
-	isolated deinit {
-		LeakDetector.instance.expectDeallocate(
-			object: trackedViewController,
-			inTime: LeakDefaultExpectationTime.viewDisappear
-		)
+	deinit {
+		MainActor.assumeIsolated {
+			_ = LeakDetector.instance.expectDeallocate(
+				object: trackedViewController,
+				inTime: LeakDefaultExpectationTime.viewDisappear
+			)
+		}
 	}
 
 	private var trackedViewController: AnyObject {

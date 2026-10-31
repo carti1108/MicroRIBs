@@ -164,10 +164,12 @@ open class Worker: Working {
 		interactorBindingCancellable = nil
 	}
 
-	isolated deinit {
-		stop()
-		unbindInteractor()
-		isStartedSubject.finish()
+	deinit {
+		MainActor.assumeIsolated {
+			stop()
+			unbindInteractor()
+			isStartedSubject.finish()
+		}
 	}
 }
 

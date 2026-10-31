@@ -106,11 +106,13 @@ open class Interactor: Interactable {
 
 	}
 
-	isolated deinit {
-		if self.isActive {
-			self.deactivate()
+	deinit {
+		MainActor.assumeIsolated {
+			if self.isActive {
+				self.deactivate()
+			}
+			self.isActiveSubject.finish()
 		}
-		self.isActiveSubject.finish()
 	}
 }
 

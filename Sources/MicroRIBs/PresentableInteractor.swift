@@ -25,7 +25,9 @@ open class PresentableInteractor<PresentableType>: Interactor {
 		super.init()
 	}
 
-	isolated deinit {
-		LeakDetector.instance.expectDeallocate(object: self.presenter as AnyObject)
+	deinit {
+		MainActor.assumeIsolated {
+			_ = LeakDetector.instance.expectDeallocate(object: self.presenter as AnyObject)
+		}
 	}
 }
