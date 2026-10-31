@@ -28,6 +28,9 @@ let package = Package(
 			dependencies: [
 				.product(name: "AsyncAlgorithms", package: "swift-async-algorithms"),
 				.product(name: "OrderedCollections", package: "swift-collections")
+			],
+			swiftSettings: [
+				.enableExperimentalFeature("IsolatedDeinit")
 			]
         ),
         .testTarget(
