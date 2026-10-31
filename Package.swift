@@ -17,7 +17,8 @@ let package = Package(
         ),
     ],
 	dependencies: [
-		.package(url: "https://github.com/apple/swift-async-algorithms", from: "1.1.7")
+		.package(url: "https://github.com/apple/swift-async-algorithms", exact: "1.0.4"),
+		.package(url: "https://github.com/apple/swift-collections.git", exact: "1.1.4")
 	],
     targets: [
         // Targets are the basic building blocks of a package, defining a module or a test suite.
@@ -25,7 +26,8 @@ let package = Package(
         .target(
             name: "MicroRIBs",
 			dependencies: [
-				.product(name: "AsyncAlgorithms", package: "swift-async-algorithms")
+				.product(name: "AsyncAlgorithms", package: "swift-async-algorithms"),
+				.product(name: "OrderedCollections", package: "swift-collections")
 			]
         ),
         .testTarget(
